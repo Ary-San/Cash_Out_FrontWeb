@@ -76,6 +76,9 @@ function renderPage() {
 
 describe('PortfolioPage', () => {
   beforeEach(() => {
+    // Los cierres de la prueba son de octubre y la pagina mira los ultimos 30 dias desde hoy: sin fijar la fecha, el tiempo deja la prueba sin datos.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 21, 12))
     getPortfolio.mockReset()
     getPortfolio.mockResolvedValue(portfolio)
     placeOrder.mockReset()
@@ -94,6 +97,10 @@ describe('PortfolioPage', () => {
       currency: 'USD',
       updatedAt: '2026-10-21T15:00:00',
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('las cifras de arriba son las del backend', async () => {
