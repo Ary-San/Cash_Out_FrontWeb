@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { changeOf, inRange } from '@/lib/assetStats'
 import { CHART_RANGES, type ChartRange } from '@/lib/chartRanges'
 import { parseIsoDate } from '@/lib/dates'
@@ -6,6 +6,7 @@ import { formatSignedPercent, formatUsd } from '@/lib/market'
 import { cn } from '@/lib/utils'
 import type { PricePoint } from '@/types/market'
 import { SegmentButton, Segmented } from '@/components/filters/Segmented'
+import { BENCHMARK, ComparePicker } from './ComparePicker'
 
 const MAX_POINTS = 260
 const fullDate = new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -17,10 +18,16 @@ interface AssetChartProps {
   points: PricePoint[]
   range: ChartRange
   onRangeChange(range: ChartRange): void
-  /** Cierres del S&P 500 (SPY) para comparar; sin ellos no se ofrece. */
-  benchmark?: PricePoint[]
-  compare: boolean
-  onCompareChange(compare: boolean): void
+  /** Si se ofrece comparar (no para la cripto). */
+  comparable?: boolean
+  /** El activo contra el que se compara y sus cierres; null si no se compara. */
+  comparison?: { symbol: string; points: PricePoint[] } | null
+  /** El simbolo elegido, aunque sus cierres todavia no lleguen. */
+  compareWith?: string | null
+  onCompareChange?(symbol: string | null): void
+  /** Cada linea con su propio eje, para que la que se mueve poco no quede aplastada. */
+  ownScale?: boolean
+  onOwnScaleChange?(next: boolean): void
   /** Costo promedio del usuario: se dibuja como referencia si cae dentro del grafico. */
   costBasis?: number | null
   /** Para la cripto: "En vivo" como una opcion mas del selector. */
@@ -35,15 +42,35 @@ function thin(points: PricePoint[]): PricePoint[] {
 }
 
 /** El precio del activo en el rango elegido, con cursor, comparacion contra el S&P 500 y tu costo. */
-export function AssetChart({ symbol, points, range, onRangeChange, benchmark, compare, onCompareChange, costBasis, live }: AssetChartProps) {
+export function AssetChart({
+  symbol,
+  points,
+  range,
+  onRangeChange,
+  comparable = false,
+  comparison,
+  compareWith = null,
+  onCompareChange,
+  ownScale = false,
+  onOwnScaleChange,
+  costBasis,
+  live,
+}: AssetChartProps) {
   const gradientId = useId()
   const [hover, setHover] = useState<number | null>(null)
+  const plotRef = useRef<HTMLDivElement>(null)
   const liveActive = live?.active ?? false
 
   const chart = useMemo(() => {
-    const visible = thin(inRange(points, range))
-    const bench = benchmark ? thin(inRange(benchmark, range)) : []
-    const comparing = compare && bench.length > 1
+    let visible = thin(inRange(points, range))
+    let bench = comparison ? thin(inRange(comparison.points, range)) : []
+    // Las dos lineas arrancan el mismo dia: si una empezo a cotizar despues, ese dia es el inicio de ambas.
+    if (visible.length > 1 && bench.length > 1) {
+      const start = visible[0].date > bench[0].date ? visible[0].date : bench[0].date
+      visible = visible.filter((p) => p.date >= start)
+      bench = bench.filter((p) => p.date >= start)
+    }
+    const comparing = Boolean(comparison) && bench.length > 1
     if (visible.length < 2) return null
     const time = (date: string) => parseIsoDate(date).getTime()
     const t0 = time(visible[0].date)
@@ -54,43 +81,67 @@ export function AssetChart({ symbol, points, range, onRangeChange, benchmark, co
     const value = (point: PricePoint) => (comparing ? (point.closePrice / base - 1) * 100 : point.closePrice)
     const benchValue = (point: PricePoint) => (point.closePrice / benchBase - 1) * 100
 
+    const scale = (list: number[]) => {
+      let lo = Math.min(...list)
+      let hi = Math.max(...list)
+      const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.02 || 1
+      lo -= pad
+      hi += pad
+      return {
+        y: (v: number) => 300 - ((v - lo) / (hi - lo)) * 300,
+        ticks: [0, 1, 2, 3].map((k) => hi - ((hi - lo) * (k + 0.5)) / 4),
+      }
+    }
     const values = visible.map(value)
-    const all = comparing ? [...values, ...bench.map(benchValue)] : [...values]
+    const benchValues = bench.map(benchValue)
+    const separate = comparing && ownScale
+    const own = [...values]
     const showCost = !comparing && costBasis != null && costBasis > Math.min(...values) * 0.8 && costBasis < Math.max(...values) * 1.2
-    if (showCost) all.push(costBasis)
-    let lo = Math.min(...all)
-    let hi = Math.max(...all)
-    const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.02 || 1
-    lo -= pad
-    hi += pad
-    const y = (v: number) => 300 - ((v - lo) / (hi - lo)) * 300
-    const path = (list: PricePoint[], get: (p: PricePoint) => number) =>
+    if (showCost) own.push(costBasis)
+    if (comparing && !separate) own.push(...benchValues)
+    const main = scale(own)
+    const other = separate ? scale(benchValues) : main
+    const path = (list: PricePoint[], get: (p: PricePoint) => number, y: (v: number) => number) =>
       list.map((p, i) => `${i ? 'L' : 'M'}${x(p.date).toFixed(1)} ${y(get(p)).toFixed(1)}`).join(' ')
+    // El cierre de la comparacion ese dia, o el ultimo antes (las bolsas no siempre cierran los mismos dias).
+    const benchAt = (date: string) => {
+      let found: PricePoint | undefined
+      for (const p of bench) {
+        if (p.date > date) break
+        found = p
+      }
+      return found ? { price: found.closePrice, change: benchValue(found) } : null
+    }
 
     return {
       visible,
       values,
       x,
-      y,
+      y: main.y,
       comparing,
-      line: path(visible, value),
-      benchLine: comparing ? path(bench, benchValue) : null,
-      costY: showCost ? y(costBasis) : null,
-      ticks: [0, 1, 2, 3].map((k) => hi - ((hi - lo) * (k + 0.5)) / 4),
+      separate,
+      benchAt,
+      line: path(visible, value, main.y),
+      benchLine: comparing ? path(bench, benchValue, other.y) : null,
+      costY: showCost ? main.y(costBasis) : null,
+      ticks: main.ticks,
+      benchTicks: separate ? other.ticks : null,
       change: changeOf(visible),
       benchChange: comparing ? changeOf(bench) : null,
     }
-  }, [points, range, benchmark, compare, costBasis])
+  }, [points, range, comparison, ownScale, costBasis])
 
   const up = (chart?.change ?? 0) >= 0
   const color = up ? 'var(--signal-up)' : 'var(--signal-down)'
   const longRange = range === '1A' || range === '5A'
   const index = hover === null || !chart ? null : Math.min(chart.visible.length - 1, Math.max(0, hover))
   const point = index === null || !chart ? null : chart.visible[index]
+  const benchPoint = point && chart?.comparing ? chart.benchAt(point.date) : null
 
   const move = (event: PointerEvent<HTMLDivElement>) => {
-    if (!chart) return
-    const box = event.currentTarget.getBoundingClientRect()
+    if (!chart || !plotRef.current) return
+    // Se mide contra el area de la linea, no contra todo el grafico: la columna de precios de la derecha corria el cursor a fechas anteriores.
+    const box = plotRef.current.getBoundingClientRect()
     const ratio = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)) * 1000
     let best = 0
     chart.visible.forEach((p, i) => {
@@ -105,7 +156,8 @@ export function AssetChart({ symbol, points, range, onRangeChange, benchmark, co
     setHover(Math.min(chart.visible.length - 1, Math.max(0, current + (event.key === 'ArrowRight' ? 1 : -1))))
   }
 
-  const title = liveActive ? 'Precio en vivo' : chart?.comparing ? `${symbol} frente al S&P 500` : `Precio de ${symbol}`
+  const otherLabel = comparison ? (comparison.symbol === BENCHMARK ? 'S&P 500' : comparison.symbol) : ''
+  const title = liveActive ? 'Precio en vivo' : chart?.comparing ? `${symbol} frente a ${otherLabel}` : `Precio de ${symbol}`
   const description = CHART_RANGES.find((r) => r.key === range)?.description
 
   return (
@@ -119,24 +171,26 @@ export function AssetChart({ symbol, points, range, onRangeChange, benchmark, co
             <p className="mt-1 text-[22px] font-semibold tracking-tight">
               <span className={up ? 'text-gain' : 'text-loss'}>{formatSignedPercent(chart.change)}</span>{' '}
               <span className="text-[13px] font-normal text-muted-foreground">
-                {chart.comparing ? `${symbol} · S&P 500 ${formatSignedPercent(chart.benchChange)}` : description}
+                {chart.comparing ? `${symbol} · ${otherLabel} ${formatSignedPercent(chart.benchChange)}` : description}
               </span>
             </p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {benchmark && !liveActive && (
+          {comparable && !liveActive && onCompareChange && (
+            <ComparePicker symbol={symbol} selected={compareWith} onChange={onCompareChange} />
+          )}
+          {chart?.comparing && !liveActive && onOwnScaleChange && (
             <button
               type="button"
-              aria-pressed={compare}
-              onClick={() => onCompareChange(!compare)}
+              aria-pressed={ownScale}
+              onClick={() => onOwnScaleChange(!ownScale)}
               className={cn(
-                'inline-flex h-7.5 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring',
-                compare && 'border-accent-ink bg-accent hover:bg-accent',
+                'inline-flex h-7.5 items-center rounded-lg border px-2.5 text-[12.5px] outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring',
+                ownScale && 'border-accent-ink bg-accent hover:bg-accent',
               )}
             >
-              <span aria-hidden="true" className="w-3.5 border-t-2 border-dashed border-income" />
-              vs S&amp;P 500
+              Ver cada uno en su escala
             </button>
           )}
           <Segmented label="Rango del gráfico">
@@ -170,7 +224,7 @@ export function AssetChart({ symbol, points, range, onRangeChange, benchmark, co
             onBlur={() => setHover(null)}
             className="relative mt-4 h-72 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <div className="absolute inset-y-0 right-14 left-0">
+            <div ref={plotRef} className="absolute inset-y-0 right-14 left-0">
               {chart.ticks.map((_, k) => (
                 <div key={k} aria-hidden="true" className="absolute inset-x-0 border-t border-border/60" style={{ top: `${((k + 0.5) / 4) * 100}%` }} />
               ))}
@@ -225,10 +279,26 @@ export function AssetChart({ symbol, points, range, onRangeChange, benchmark, co
                     <p className={point.closePrice >= chart.visible[0].closePrice ? 'text-gain' : 'text-loss'}>
                       {formatSignedPercent((point.closePrice / chart.visible[0].closePrice - 1) * 100)} desde el inicio
                     </p>
+                    {benchPoint && (
+                      <p className="mt-1.5 border-t pt-1.5">
+                        <span className="text-muted-foreground">{otherLabel}</span> <span className="font-mono">{formatUsd(benchPoint.price)}</span>{' '}
+                        <span className={benchPoint.change >= 0 ? 'text-gain' : 'text-loss'}>{formatSignedPercent(benchPoint.change)}</span>
+                      </p>
+                    )}
                   </div>
                 </>
               )}
             </div>
+            {chart.benchTicks?.map((tick, k) => (
+              <span
+                key={`b${k}`}
+                aria-hidden="true"
+                className="absolute left-1 -translate-y-1/2 font-mono text-[11px] text-income"
+                style={{ top: `${((k + 0.5) / 4) * 100}%` }}
+              >
+                {formatSignedPercent(tick)}
+              </span>
+            ))}
             {chart.ticks.map((tick, k) => (
               <span
                 key={k}
@@ -240,6 +310,11 @@ export function AssetChart({ symbol, points, range, onRangeChange, benchmark, co
               </span>
             ))}
           </div>
+          {chart.separate && (
+            <p className="mt-1 text-[11.5px] text-muted-foreground">
+              Cada línea tiene su propia escala (la de {otherLabel}, a la izquierda): compara los %, no la altura de las líneas.
+            </p>
+          )}
           <div aria-hidden="true" className="mt-1.5 mr-14 flex justify-between text-[11px] text-muted-foreground">
             {[0, 1, 2, 3].map((k) => {
               const p = chart.visible[Math.round((k / 3) * (chart.visible.length - 1))]

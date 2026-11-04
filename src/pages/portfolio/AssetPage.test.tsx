@@ -100,10 +100,32 @@ describe('AssetPage', () => {
 
   it('comparar con el S&P 500 queda en la URL y cambia el titulo del grafico', async () => {
     const router = renderPage()
-    await userEvent.click(await screen.findByRole('button', { name: /vs S&P 500/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Comparar con…' }))
+    await userEvent.click(screen.getByRole('button', { name: /^S&P 500/ }))
 
-    expect(router.state.location.search).toBe('?comparar=1')
-    expect(screen.getByRole('heading', { name: 'AAPL frente al S&P 500' })).toBeInTheDocument()
+    expect(router.state.location.search).toBe('?comparar=SPY')
+    expect(await screen.findByRole('heading', { name: 'AAPL frente a S&P 500' })).toBeInTheDocument()
+  })
+
+  it('compara contra otra accion de la URL, con su simbolo', async () => {
+    const TSLA = { ...AAPL, id: 11, symbol: 'TSLA', name: 'Tesla, Inc.' }
+    vi.mocked(marketService.searchAssets).mockImplementation(async ({ search }) => ({
+      content: [search === 'TSLA' ? TSLA : SPY],
+      page: 0,
+      size: 1,
+      totalElements: 1,
+      totalPages: 1,
+    }))
+    renderPage('/portafolio/mercado/7?comparar=TSLA')
+
+    expect(await screen.findByRole('heading', { name: 'AAPL frente a TSLA' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ver cada uno en su escala' })).toBeInTheDocument()
+  })
+
+  it('un enlace viejo con comparar=1 sigue siendo el S&P 500', async () => {
+    renderPage('/portafolio/mercado/7?comparar=1')
+
+    expect(await screen.findByRole('heading', { name: 'AAPL frente a S&P 500' })).toBeInTheDocument()
   })
 
   it('el ticket opera solo este activo, sin buscador', async () => {
