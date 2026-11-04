@@ -20,6 +20,7 @@ import { EmptyState } from '@/components/feedback/EmptyState'
 import { ErrorState } from '@/components/feedback/ErrorState'
 import { PageLoader } from '@/components/feedback/PageLoader'
 import { AssetChart } from '@/components/market/AssetChart'
+import { BENCHMARK } from '@/components/market/ComparePicker'
 import { AssetOrders } from '@/components/market/AssetOrders'
 import { AssetPositionCard } from '@/components/market/AssetPositionCard'
 import { AssetReturns } from '@/components/market/AssetReturns'
@@ -32,7 +33,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const BENCHMARK = 'SPY'
 const isRange = (value: string | null): value is ChartRange => CHART_RANGES.some((r) => r.key === value)
 
 export default function AssetPage() {
@@ -41,7 +41,8 @@ export default function AssetPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const rangeParam = searchParams.get('rango')
   const range: ChartRange = isRange(rangeParam) ? rangeParam : '1M'
-  const compare = searchParams.get('comparar') === '1'
+  const compareParam = searchParams.get('comparar')
+  const ownScale = searchParams.get('escala') === 'propia'
   const [side, setSide] = useState<OrderSide>('BUY')
   const watchlist = useWatchlist()
 
@@ -53,16 +54,25 @@ export default function AssetPage() {
   const orders = useApiQuery(['asset-orders', id], (signal) =>
     portfolioService.allOrders(signal).then((list) => newestFirst(list.filter((order) => order.assetId === id))),
   )
-  const isBenchmark = asset.data?.symbol === BENCHMARK
-  // El S&P 500 se compara con su ETF; si este activo ya es SPY no hay nada que comparar.
-  const benchmark = useApiQuery(['benchmark', isBenchmark], async (signal) => {
-    if (isBenchmark) return null
-    const page = await marketService.searchAssets({ search: BENCHMARK, page: 0, size: 1 }, signal)
-    const spy = page.content.find((item) => item.symbol === BENCHMARK)
-    return spy ? marketService.getPriceHistory(spy.id, signal) : null
-  })
-  usePolling(quote.reload, 15_000, Boolean(asset.data))
   const isCrypto = asset.data?.type === 'CRYPTO'
+  // Enlaces viejos guardaban "comparar=1": era el S&P 500.
+  const wanted = compareParam === '1' ? BENCHMARK : compareParam?.toUpperCase() || null
+  // Acciones contra acciones: la cripto no se compara, ni nada consigo mismo.
+  const compareWith = asset.data && !isCrypto && wanted !== asset.data.symbol ? wanted : null
+  const historyOf = async (symbol: string, signal: AbortSignal) => {
+    const page = await marketService.searchAssets({ search: symbol, page: 0, size: 5 }, signal)
+    const found = page.content.find((item) => item.symbol === symbol && item.type !== 'CRYPTO')
+    return found ? { symbol, points: await marketService.getPriceHistory(found.id, signal) } : null
+  }
+  // El S&P 500 sigue en la tabla de rendimientos aunque el grafico compare con otro.
+  const benchmark = useApiQuery(['benchmark', asset.data?.symbol ?? null], (signal) =>
+    asset.data && !isCrypto && asset.data.symbol !== BENCHMARK ? historyOf(BENCHMARK, signal) : Promise.resolve(null),
+  )
+  const comparison = useApiQuery(['comparison', compareWith], (signal) =>
+    !compareWith || compareWith === BENCHMARK ? Promise.resolve(null) : historyOf(compareWith, signal),
+  )
+  const compared = compareWith === BENCHMARK ? benchmark.data : comparison.data
+  usePolling(quote.reload, 15_000, Boolean(asset.data))
   const live = useLivePrices(id, isCrypto)
   const liveView = isCrypto && searchParams.get('vista') !== 'historico'
 
@@ -209,9 +219,12 @@ export default function AssetPage() {
               points={history.data ?? []}
               range={range}
               onRangeChange={changeRange}
-              benchmark={benchmark.data ?? undefined}
-              compare={compare}
-              onCompareChange={(next) => setParams({ comparar: next ? '1' : null })}
+              comparable={!isCrypto}
+              compareWith={compareWith}
+              comparison={compareWith && compared?.symbol === compareWith ? compared : null}
+              onCompareChange={(next) => setParams({ comparar: next, escala: null })}
+              ownScale={ownScale}
+              onOwnScaleChange={(next) => setParams({ escala: next ? 'propia' : null })}
               costBasis={position?.averageCost}
               live={
                 isCrypto
@@ -225,7 +238,7 @@ export default function AssetPage() {
             />
           )}
 
-          <AssetReturns returns={history.data && returnsByRange(history.data, benchmark.data ?? undefined)} range={range} onRangeChange={changeRange} />
+          <AssetReturns returns={history.data && returnsByRange(history.data, benchmark.data?.points)} range={range} onRangeChange={changeRange} />
 
           <div className="grid gap-5 md:grid-cols-2">
             <YearRange stats={history.data && yearStats(history.data, price)} price={price} />
