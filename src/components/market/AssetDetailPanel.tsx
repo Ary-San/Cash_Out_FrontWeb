@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Star } from 'lucide-react'
+import { ArrowRight, Star } from 'lucide-react'
 import { useApiQuery } from '@/hooks/useApiQuery'
 import type { OrderTarget } from '@/hooks/useOrderForm'
 import type { ChartRange } from '@/lib/chartRanges'
@@ -101,9 +101,11 @@ export function AssetDetailPanel({ asset, position, onTrade, favorite, onToggleF
           Vender
         </Button>
       </div>
-      <Link to={`/portafolio/mercado/${asset.id}`} className="mt-3 inline-block text-[12.5px] font-medium underline-offset-4 hover:underline">
-        Ver la página del activo
-      </Link>
+      <Button asChild variant="outline" size="lg" className="mt-3 w-full">
+        <Link to={`/portafolio/mercado/${asset.id}`}>
+          Ver la página del activo <ArrowRight aria-hidden="true" />
+        </Link>
+      </Button>
     </aside>
   )
 }

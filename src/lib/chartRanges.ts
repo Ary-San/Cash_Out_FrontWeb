@@ -1,6 +1,6 @@
 import { parseIsoDate } from './dates'
 
-export type ChartRange = '1M' | '3M' | '6M' | '1A' | '5A'
+export type ChartRange = '1M' | '3M' | '6M' | '1A' | '5A' | 'MAX'
 
 export const CHART_RANGES: { key: ChartRange; months: number; description: string }[] = [
   { key: '1M', months: 1, description: 'en el último mes' },
@@ -8,7 +8,11 @@ export const CHART_RANGES: { key: ChartRange; months: number; description: strin
   { key: '6M', months: 6, description: 'en los últimos 6 meses' },
   { key: '1A', months: 12, description: 'en el último año' },
   { key: '5A', months: 60, description: 'en los últimos 5 años' },
+  { key: 'MAX', months: Infinity, description: 'desde el primer cierre' },
 ]
+
+/** Lo que dice el boton del rango: "Máx" en vez de la clave. */
+export const rangeLabel = (key: ChartRange) => (key === 'MAX' ? 'Máx' : key)
 
 /** "2026-10-02" − 3 meses → "2026-07-02". El dia 31 cae al ultimo dia del mes si no existe. */
 export function addMonths(iso: string, months: number): string {
@@ -27,5 +31,6 @@ export function addMonths(iso: string, months: number): string {
 /** El rango se cuenta desde el ultimo cierre, no desde hoy: un fin de semana no achica el grafico. */
 export function chartRangeStart(lastDate: string, range: ChartRange): string {
   const months = CHART_RANGES.find((r) => r.key === range)?.months ?? 3
-  return addMonths(lastDate, -months)
+  // "Máx" no tiene inicio: cualquier fecha ISO es mayor que "".
+  return Number.isFinite(months) ? addMonths(lastDate, -months) : ''
 }

@@ -3,7 +3,7 @@ import type { ChartRange } from '@/lib/chartRanges'
 import { formatSignedPercent } from '@/lib/market'
 import { cn } from '@/lib/utils'
 
-const LABELS: Record<ChartRange, string> = { '1M': '1 mes', '3M': '3 meses', '6M': '6 meses', '1A': '1 año', '5A': '5 años' }
+const LABELS: Record<ChartRange, string> = { '1M': '1 mes', '3M': '3 meses', '6M': '6 meses', '1A': '1 año', '5A': '5 años', MAX: 'Máx' }
 const KEYS = Object.keys(LABELS) as ChartRange[]
 
 interface AssetReturnsProps {
@@ -20,7 +20,7 @@ export function AssetReturns({ returns, range, onRangeChange }: AssetReturnsProp
       <h2 id="activo-rendimiento" className="text-xs tracking-wider text-muted-foreground uppercase">
         Cuánto rindió
       </h2>
-      <div className="mt-3 grid grid-cols-2 gap-y-3 sm:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-y-3 sm:grid-cols-6">
         {KEYS.map((key, i) => {
           const item = returns?.find((r) => r.range === key)
           const pressed = range === key

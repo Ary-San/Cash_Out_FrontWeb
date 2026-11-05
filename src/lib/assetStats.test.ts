@@ -48,3 +48,16 @@ describe('assetStats', () => {
     expect(displayName('SPDR S&P 500 ETF Trust')).toBe('SPDR S&P 500 ETF Trust')
   })
 })
+
+describe('rango Máx', () => {
+  it('incluye todos los cierres, desde el primero', () => {
+    const all: PricePoint[] = [
+      { date: '2004-01-02', closePrice: 10 },
+      { date: '2020-06-01', closePrice: 15 },
+      { date: '2026-11-03', closePrice: 30 },
+    ]
+
+    expect(inRange(all, 'MAX')).toHaveLength(3)
+    expect(returnsByRange(all).find((r) => r.range === 'MAX')?.value).toBe(200)
+  })
+})

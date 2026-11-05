@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
-import { chartRangeStart, CHART_RANGES, type ChartRange } from '@/lib/chartRanges'
+import { chartRangeStart, CHART_RANGES, rangeLabel, type ChartRange } from '@/lib/chartRanges'
 import { formatAxisUsd, formatSignedPercent, formatUsd } from '@/lib/market'
 import { parseIsoDate } from '@/lib/dates'
 import type { PricePoint } from '@/types/market'
@@ -60,7 +60,7 @@ export function PriceChart({ symbol, points, range, onRangeChange }: PriceChartP
         >
           {CHART_RANGES.map((r) => (
             <ToggleGroupItem key={r.key} value={r.key} aria-label={r.description} className="px-2.5">
-              {r.key}
+              {rangeLabel(r.key)}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
