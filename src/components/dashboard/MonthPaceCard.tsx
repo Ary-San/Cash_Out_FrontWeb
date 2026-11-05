@@ -1,11 +1,12 @@
 import { useState, type PointerEvent } from 'react'
 import { formatSoles } from '@/lib/format'
-import { formatSignedPercent } from '@/lib/market'
 import type { MonthPace } from '@/lib/monthPace'
 import { cn } from '@/lib/utils'
 import { ErrorState } from '@/components/feedback/ErrorState'
 import { Skeleton } from '@/components/ui/skeleton'
 
+// La flecha ya dice si subio o bajo: el porcentaje va sin signo.
+const oneDecimal = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 const W = 520
 const H = 230
 const PAD = { l: 8, r: 56, t: 10, b: 24 }
@@ -87,7 +88,7 @@ export function MonthPaceCard({ month, previousMonth, pace, error, onRetry }: Mo
                 Frente al {Math.min(pace.day, pace.previousCumulative.length)} de {previousName}
               </dt>
               <dd className={cn('text-sm font-medium', pace.change <= 0 ? 'text-gain' : 'text-loss')}>
-                {pace.change <= 0 ? '↓' : '↑'} {formatSignedPercent(pace.change)} de gasto
+                {pace.change <= 0 ? '↓' : '↑'} {oneDecimal.format(Math.abs(pace.change))} % de gasto
               </dd>
             </div>
           )}
