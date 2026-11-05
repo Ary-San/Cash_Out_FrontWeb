@@ -1,5 +1,5 @@
 import type { User } from '@/types/auth'
-import { homePathFor, navItemsFor } from './navigation'
+import { activeNavPath, homePathFor, NAV_ITEMS, navItemsFor } from './navigation'
 
 const account = (roles: User['roles']): User => ({
   id: 1,
@@ -23,6 +23,8 @@ describe('navegacion por rol', () => {
       '/metas',
       '/proyeccion',
       '/portafolio',
+      '/portafolio/mercado',
+      '/portafolio/noticias',
       '/minijuegos',
     ])
     expect(homePathFor(user)).toBe('/resumen')
@@ -46,5 +48,18 @@ describe('navegacion por rol', () => {
     expect(homePathFor(admin)).toBe('/admin')
     // Si no, "Panel" quedaria activo tambien dentro de /admin/usuarios.
     expect(navItemsFor(admin)[0].end).toBe(true)
+  })
+})
+
+describe('item activo del menu', () => {
+  it('gana la ruta mas larga: el detalle de un activo marca Mercado, no Portafolio', () => {
+    expect(activeNavPath(NAV_ITEMS, '/portafolio/mercado/7')).toBe('/portafolio/mercado')
+    expect(activeNavPath(NAV_ITEMS, '/portafolio/ordenes')).toBe('/portafolio')
+    expect(activeNavPath(NAV_ITEMS, '/movimientos/gastos/3')).toBe('/movimientos')
+  })
+
+  it('el panel de administracion solo se marca en su ruta exacta', () => {
+    expect(activeNavPath(NAV_ITEMS, '/admin')).toBe('/admin')
+    expect(activeNavPath(NAV_ITEMS, '/admin/usuarios')).toBe('/admin/usuarios')
   })
 })
