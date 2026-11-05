@@ -1,4 +1,4 @@
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { ArrowDown, ArrowUp, Star } from 'lucide-react'
 import { ASSET_TYPE_LABEL, formatSignedPercent, formatUsd } from '@/lib/market'
 import { columnValue, nextSort, type MarketColumn, type MarketSort } from '@/lib/marketSort'
@@ -110,6 +110,7 @@ function AssetTableRow({
   const quote = quoteOf(asset)
   const favorite = isFavorite(asset.id)
   const selected = asset.id === selectedId
+  const navigate = useNavigate()
   const percent = columnValue('changePct', quote)
   const change = columnValue('change', quote)
   const pending = quotesLoading && !quote
@@ -124,6 +125,8 @@ function AssetTableRow({
   return (
     <div
       role="row"
+      // En la web un clic abre el panel y el doble clic entra a la pagina del activo.
+      onDoubleClick={wide ? () => navigate(`/portafolio/mercado/${asset.id}`, { state: returnState }) : undefined}
       className={cn(
         'relative grid items-center gap-3 border-b px-4 py-2.5 text-[13px] transition-colors last:border-b-0 hover:bg-muted/50 sm:px-5',
         COLUMNS,

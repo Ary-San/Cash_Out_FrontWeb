@@ -26,7 +26,7 @@ function Shell({ title, text }: { title: string; text: string }) {
     <div role="alert" className="flex min-h-svh flex-col items-center justify-center gap-4 bg-background p-6 text-center">
       <TriangleAlert className="size-10 text-destructive" aria-hidden="true" />
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">{title}</h1>
+        <h1 className="font-display text-3xl leading-tight">{title}</h1>
         <p className="max-w-md text-sm text-muted-foreground">{text}</p>
       </div>
       <div className="flex flex-wrap justify-center gap-2">

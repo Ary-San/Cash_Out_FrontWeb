@@ -1,6 +1,6 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { changeOf, inRange } from '@/lib/assetStats'
-import { CHART_RANGES, type ChartRange } from '@/lib/chartRanges'
+import { CHART_RANGES, rangeLabel, type ChartRange } from '@/lib/chartRanges'
 import { parseIsoDate } from '@/lib/dates'
 import { formatSignedPercent, formatUsd } from '@/lib/market'
 import { cn } from '@/lib/utils'
@@ -133,7 +133,7 @@ export function AssetChart({
 
   const up = (chart?.change ?? 0) >= 0
   const color = up ? 'var(--signal-up)' : 'var(--signal-down)'
-  const longRange = range === '1A' || range === '5A'
+  const longRange = range === '1A' || range === '5A' || range === 'MAX'
   const index = hover === null || !chart ? null : Math.min(chart.visible.length - 1, Math.max(0, hover))
   const point = index === null || !chart ? null : chart.visible[index]
   const benchPoint = point && chart?.comparing ? chart.benchAt(point.date) : null
@@ -201,7 +201,7 @@ export function AssetChart({
             )}
             {CHART_RANGES.map(({ key }) => (
               <SegmentButton key={key} pressed={!liveActive && range === key} onClick={() => onRangeChange(key)}>
-                {key}
+                {rangeLabel(key)}
               </SegmentButton>
             ))}
           </Segmented>

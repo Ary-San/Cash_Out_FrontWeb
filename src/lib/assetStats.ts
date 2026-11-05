@@ -32,7 +32,7 @@ export function returnsByRange(points: readonly PricePoint[], benchmark?: readon
     const complete = firstDate !== undefined && slice[0]?.date !== firstDate
     return {
       range: key,
-      value: complete || key === '5A' ? changeOf(slice) : null,
+      value: complete || key === '5A' || key === 'MAX' ? changeOf(slice) : null,
       benchmark: benchmark ? changeOf(inRange(benchmark, key)) : null,
     }
   })

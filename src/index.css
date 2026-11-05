@@ -47,6 +47,7 @@
   --color-loss: var(--loss);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-info: var(--info);
   --color-signal-up: var(--signal-up);
   --color-signal-down: var(--signal-down);
   --color-silver: var(--silver);
@@ -104,11 +105,12 @@
   --input: var(--silver);
   --ring: var(--slate);
 
-  --chart-1: #91768f;
-  --chart-2: var(--slate);
-  --chart-3: var(--sage);
-  --chart-4: #9d9ea5;
-  --chart-5: var(--mauve);
+  /* Los graficos usan la paleta de series: los tonos de la marca se parecen demasiado para distinguir categorias. */
+  --chart-1: var(--series-1);
+  --chart-2: var(--series-2);
+  --chart-3: var(--series-3);
+  --chart-4: var(--series-4);
+  --chart-5: var(--series-5);
 
   --income: #606939;
   --expense: #7f5175;
@@ -116,6 +118,8 @@
   --loss: var(--signal-down);
   --success: var(--income);
   --warning: #81632f;
+  /* Avisos neutros: ni ingreso ni error. Pizarra azulada, distinta del acento malva. */
+  --info: #4a5b8c;
 
   /* Cursivas de los titulos de la landing. */
   --accent-ink: #7a6178;
@@ -162,12 +166,11 @@
   --input: var(--slate);
   --ring: var(--mauve);
 
-  --chart-1: var(--mauve);
-  --chart-2: var(--silver);
 
   --income: #b9bf97;
   --expense: #c8a4c3;
   --warning: #d5ba82;
+  --info: #9db0e0;
 
   --accent-ink: #c9b6c8;
 

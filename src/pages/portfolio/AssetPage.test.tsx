@@ -91,7 +91,7 @@ describe('AssetPage', () => {
   it('cada rango compara contra el S&P 500 y elegirlo cambia el grafico', async () => {
     const router = renderPage()
     const returns = await screen.findByRole('region', { name: 'Cuánto rindió' })
-    expect(await within(returns).findAllByText(/^S&P 500 \+/)).toHaveLength(5)
+    expect(await within(returns).findAllByText(/^S&P 500 \+/)).toHaveLength(6)
 
     await userEvent.click(within(returns).getByRole('button', { name: /^1 año/ }))
     expect(router.state.location.search).toBe('?rango=1A')

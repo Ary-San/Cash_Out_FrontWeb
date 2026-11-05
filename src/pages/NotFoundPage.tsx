@@ -13,7 +13,7 @@ export default function NotFoundPage() {
       <Compass className="size-10 text-muted-foreground" aria-hidden="true" />
       <div className="space-y-1">
         <p className="text-sm font-medium text-muted-foreground">Error 404</p>
-        <h1 className="text-2xl font-semibold">No encontramos esta página</h1>
+        <h1 className="font-display text-4xl leading-none">No encontramos esta <em className="text-accent-ink">página</em></h1>
         <p className="max-w-md text-sm text-muted-foreground">
           Puede que el enlace esté mal escrito o que la página ya no exista.
         </p>

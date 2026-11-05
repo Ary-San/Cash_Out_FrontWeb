@@ -94,6 +94,8 @@ function ActivityRow({ item, index, open }: { item: Movement; index: number; ope
       <span
         aria-hidden="true"
         className={income ? 'grid size-7 flex-none place-items-center rounded-lg bg-gain/15 text-gain' : 'grid size-7 flex-none place-items-center rounded-lg bg-muted text-muted-foreground'}
+        // Cada gasto con el color de su categoria, el mismo de "En que se fue".
+        style={!income && category ? { color: category.color, background: `color-mix(in srgb, ${category.color} 16%, transparent)` } : undefined}
       >
         <Icon className="size-3.5" />
       </span>
