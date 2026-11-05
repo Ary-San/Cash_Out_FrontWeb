@@ -6,7 +6,7 @@
       "destination": "http://checkout-alb-904211724.us-east-1.elb.amazonaws.com/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/).*)",
       "destination": "/index.html"
     }
   ],
