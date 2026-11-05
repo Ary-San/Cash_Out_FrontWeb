@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@/contexts/ThemeProvider'
 import { ThemeToggle } from './ThemeToggle'
 
-vi.mock('@/hooks/useReducedMotion', () => ({ useReducedMotion: () => true }))
+const reduced = vi.hoisted(() => ({ value: true }))
+vi.mock('@/hooks/useReducedMotion', () => ({ useReducedMotion: () => reduced.value }))
 
 function renderToggle() {
   render(
@@ -27,6 +28,7 @@ describe('ThemeToggle', () => {
     }))
     localStorage.setItem('cashout.theme', 'light')
     document.documentElement.classList.remove('dark')
+    reduced.value = true
   })
 
   it('un clic alterna entre claro y oscuro y lo recuerda', async () => {
@@ -45,5 +47,36 @@ describe('ThemeToggle', () => {
 
     await userEvent.type(screen.getByRole('textbox', { name: 'Buscar' }), 'd')
     expect(isDark()).toBe(true)
+  })
+
+  it('con dos botones en la pagina, la D anima una sola vez desde el que se ve', async () => {
+    // El menu lateral y la barra del celular traen su boton; uno de los dos siempre esta oculto.
+    reduced.value = false
+    const start = vi.fn((update: () => void) => {
+      update()
+      return { ready: Promise.resolve() }
+    })
+    Object.assign(document, { startViewTransition: start })
+    document.documentElement.animate = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, 'checkVisibility', {
+      configurable: true,
+      value(this: HTMLElement) {
+        return !this.closest('[data-oculto]')
+      },
+    })
+    render(
+      <ThemeProvider>
+        <div data-oculto>
+          <ThemeToggle />
+        </div>
+        <ThemeToggle />
+      </ThemeProvider>,
+    )
+
+    await userEvent.keyboard('d')
+    expect(start).toHaveBeenCalledTimes(1)
+    expect(isDark()).toBe(true)
+    Reflect.deleteProperty(HTMLElement.prototype, 'checkVisibility')
+    Reflect.deleteProperty(document, 'startViewTransition')
   })
 })
