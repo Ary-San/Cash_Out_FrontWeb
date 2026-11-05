@@ -52,6 +52,9 @@ export function ThemeToggle({ className }: { className?: string }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'd' || event.ctrlKey || event.metaKey || event.altKey || event.repeat || isTyping(event.target)) return
+      // Hay un boton en el menu lateral y otro en la barra del celular: responde solo el que se ve,
+      // para no cambiar el tema dos veces ni abrir el circulo desde un boton oculto.
+      if (!button.current || button.current.checkVisibility?.() === false) return
       shortcut.current()
     }
     window.addEventListener('keydown', onKey)
