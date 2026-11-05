@@ -4,14 +4,20 @@ import { useAuth } from '@/hooks/useAuth'
 import { useApiQuery } from '@/hooks/useApiQuery'
 import { DEFAULT_CASH_FLOW_RANGE, isCashFlowRange, monthsFor, monthsThisYear, type CashFlowRange } from '@/lib/cashFlow'
 import { firstName, formatDateTime } from '@/lib/format'
+import { currentMonth, shiftMonth } from '@/lib/monthOverview'
+import { monthPace } from '@/lib/monthPace'
+import { buildAlerts } from '@/lib/dashboardAlerts'
 import { goalService } from '@/services/goalService'
 import { movementService } from '@/services/movementService'
 import { portfolioService } from '@/services/portfolioService'
 import { savingsService } from '@/services/savingsService'
 import { walletService } from '@/services/walletService'
 import { CashFlowBars } from '@/components/dashboard/CashFlowBars'
+import { CategorySplitCard } from '@/components/dashboard/CategorySplitCard'
+import { DashboardAlerts } from '@/components/dashboard/DashboardAlerts'
 import { FirstStepsCard } from '@/components/dashboard/FirstStepsCard'
 import { GoalsPaceCard } from '@/components/dashboard/GoalsPaceCard'
+import { MonthPaceCard } from '@/components/dashboard/MonthPaceCard'
 import { MarketComparisonCard } from '@/components/dashboard/MarketComparisonCard'
 import { PortfolioSummaryCard } from '@/components/dashboard/PortfolioSummaryCard'
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard'
@@ -40,6 +46,14 @@ export default function DashboardPage() {
   const flows = useApiQuery(['movements', 'monthly', months], (signal) => movementService.monthly(months, signal))
   const yearMonths = monthsThisYear()
   const year = useApiQuery(['movements', 'monthly', yearMonths], (signal) => movementService.monthly(yearMonths, signal))
+
+  // El mes en curso y el anterior completos: para comparar a la misma altura del mes.
+  const month = currentMonth()
+  const previousMonth = shiftMonth(month, -1)
+  const thisMonth = useApiQuery(['movements', 'month', month], (signal) => movementService.month(month, signal))
+  const lastMonth = useApiQuery(['movements', 'month', previousMonth], (signal) => movementService.month(previousMonth, signal))
+  const pace = thisMonth.data && lastMonth.data ? monthPace(thisMonth.data, lastMonth.data, month, previousMonth) : undefined
+  const previousName = new Intl.DateTimeFormat('es-PE', { month: 'long' }).format(new Date(`${previousMonth}-15T12:00:00`))
 
   const s = savings.data
   const isNewAccount = recent.data?.totalElements === 0
@@ -86,23 +100,57 @@ export default function DashboardPage() {
         }
       />
 
-      {isNewAccount ? <FirstStepsCard /> : <SavingsCard savings={savings} year={year} goalsInProgress={goalsInProgress} />}
+      {isNewAccount ? (
+        <FirstStepsCard />
+      ) : (
+        <MonthPaceCard
+          month={month}
+          previousMonth={previousMonth}
+          pace={pace}
+          error={thisMonth.error ?? lastMonth.error ?? null}
+          onRetry={() => {
+            thisMonth.reload()
+            lastMonth.reload()
+          }}
+        />
+      )}
+
+      {!isNewAccount && <DashboardAlerts alerts={buildAlerts(goals.data, pace, previousName)} />}
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <TokenWalletCard wallet={wallet} moves={tokenMoves} ownerName={user?.name ?? ''} />
-        <SavingsRateCard year={year} />
-        <RecentActivityCard movements={recent} />
-
         {!isNewAccount && (
           <>
-            <CashFlowBars query={flows} range={range} onRangeChange={changeRange} />
             <GoalsPaceCard query={goals} />
+            <CategorySplitCard pace={pace} previousName={previousName} />
           </>
         )}
-
-        {(!isNewAccount || hasPositions) && <PortfolioSummaryCard query={portfolio} />}
-        {hasPositions && portfolio.data && <MarketComparisonCard portfolio={portfolio.data} />}
+        <RecentActivityCard movements={recent} />
       </div>
+
+      {!isNewAccount && <SavingsCard savings={savings} year={year} goalsInProgress={goalsInProgress} />}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {!isNewAccount && <CashFlowBars query={flows} range={range} onRangeChange={changeRange} />}
+        <SavingsRateCard year={year} />
+      </div>
+
+      {/* Lo simulado va aparte, con su etiqueta: fichas, no dinero real. */}
+      <section aria-labelledby="resumen-simulador" className="grid gap-4 rounded-3xl border-[1.5px] border-dashed border-accent-ink/45 bg-accent/35 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-ink bg-card py-0.5 pr-2.5 pl-1 text-xs font-semibold text-accent-ink">
+            <img src="/cashout-chip.svg" alt="" className="size-4.5" />
+            Simulador · fichas, no dinero real
+          </span>
+          <h2 id="resumen-simulador" className="text-[15px] font-semibold">
+            Tu portafolio de práctica
+          </h2>
+        </div>
+        <div className="grid gap-5 lg:grid-cols-3">
+          <TokenWalletCard wallet={wallet} moves={tokenMoves} ownerName={user?.name ?? ''} />
+          {(!isNewAccount || hasPositions) && <PortfolioSummaryCard query={portfolio} />}
+          {hasPositions && portfolio.data && <MarketComparisonCard portfolio={portfolio.data} />}
+        </div>
+        <p className="px-1 text-xs text-muted-foreground">Precios reales del mercado de EE. UU. (Alpaca). Las compras y ventas son con fichas.</p>
+      </section>
     </>
   )
 }

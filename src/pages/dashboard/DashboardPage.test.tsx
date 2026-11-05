@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { SavingsGoal } from '@/types/goals'
 import type { Portfolio, Position } from '@/types/market'
-import type { MonthlyFlows } from '@/types/movements'
+import type { Movement, MonthlyFlows } from '@/types/movements'
+import { currentMonth } from '@/lib/monthOverview'
 import { goalService } from '@/services/goalService'
 import { marketService } from '@/services/marketService'
 import { movementService } from '@/services/movementService'
@@ -15,7 +16,7 @@ import DashboardPage from './DashboardPage'
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { name: 'Valeria Ríos' } }) }))
 // jsdom no tiene matchMedia; sin animaciones, la actividad se despliega de una vez.
 vi.mock('@/hooks/useReducedMotion', () => ({ useReducedMotion: () => true }))
-vi.mock('@/services/movementService', () => ({ movementService: { list: vi.fn(), monthly: vi.fn() } }))
+vi.mock('@/services/movementService', () => ({ movementService: { list: vi.fn(), monthly: vi.fn(), month: vi.fn() } }))
 vi.mock('@/services/savingsService', () => ({ savingsService: { get: vi.fn() } }))
 vi.mock('@/services/walletService', () => ({ walletService: { get: vi.fn(), transactions: vi.fn() } }))
 vi.mock('@/services/goalService', () => ({ goalService: { list: vi.fn() } }))
@@ -39,6 +40,17 @@ const flows: MonthlyFlows = {
   totalExpense: 2930,
   totalNet: 720,
 }
+
+// El dia 1 existe en cualquier mes: la prueba no depende de la fecha en que corra.
+const move = (month: string, kind: Movement['kind'], amount: number, category: Movement['category'] = null): Movement => ({
+  id: amount,
+  kind,
+  label: null,
+  category,
+  amount,
+  date: `${month}-01`,
+  createdAt: `${month}-01T12:00:00`,
+})
 
 const goal = (overrides: Partial<SavingsGoal>): SavingsGoal => ({
   id: 1,
@@ -96,6 +108,9 @@ describe('DashboardPage', () => {
       totalPages: 3,
     })
     monthly.mockResolvedValue(flows)
+    vi.mocked(movementService.month).mockImplementation(async (month) =>
+      month === currentMonth() ? [move(month, 'INCOME', 1000), move(month, 'EXPENSE', 300, 'FOOD')] : [move(month, 'EXPENSE', 200, 'FOOD')],
+    )
     vi.mocked(savingsService.get).mockResolvedValue({
       id: 1,
       currentBalance: 2030,
@@ -224,5 +239,30 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('tu meta para empezar')).toBeInTheDocument()
     expect(screen.getByText('Aún no hay movimientos')).toBeInTheDocument()
     expect(screen.queryByText('Todavía no inviertes tus fichas')).not.toBeInTheDocument()
+  })
+
+  it('el mes dice cuanto queda y compara con el mes pasado a la misma altura', async () => {
+    renderAt()
+
+    const card = await screen.findByRole('region', { name: /hasta hoy/ })
+    expect(await within(card).findByText(/S\/\s?700\.00/)).toBeInTheDocument()
+    expect(within(card).getByText('te quedan este mes')).toBeInTheDocument()
+    expect(within(card).getByText(/\+50\.00 % de gasto/)).toBeInTheDocument()
+  })
+
+  it('avisa la categoria que mas crecio y lleva a esos gastos', async () => {
+    renderAt()
+
+    const alerts = await screen.findByRole('region', { name: 'Avisos' })
+    expect(await within(alerts).findByText('Comida subió 50 %')).toBeInTheDocument()
+    expect(within(alerts).getByRole('link', { name: 'Ver gastos de comida' })).toHaveAttribute('href', '/movimientos/gastos?category=FOOD')
+  })
+
+  it('lo simulado va en su propio bloque con la etiqueta de fichas', async () => {
+    renderAt()
+
+    const sim = await screen.findByRole('region', { name: 'Tu portafolio de práctica' })
+    expect(within(sim).getByText('Simulador · fichas, no dinero real')).toBeInTheDocument()
+    expect(within(sim).getByText(/Precios reales del mercado de EE\. UU\./)).toBeInTheDocument()
   })
 })
