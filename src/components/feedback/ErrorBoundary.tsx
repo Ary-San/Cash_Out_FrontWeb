@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       <div role="alert" className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center">
         <TriangleAlert className="size-10 text-destructive" aria-hidden="true" />
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold">Algo salió mal</h1>
+          <h1 className="font-display text-3xl leading-tight">Algo salió <em className="text-accent-ink">mal</em></h1>
           <p className="max-w-md text-sm text-muted-foreground">
             Ocurrió un error inesperado al mostrar esta pantalla. Tus datos están a salvo: este error no
             cambió nada en tu cuenta.
