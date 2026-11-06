@@ -85,7 +85,7 @@ export function AssistantComposer({ onSaved }: { onSaved: () => void }) {
   const ready = cards.filter((card) => !formProblem(card.form)).length
 
   return (
-    <section aria-labelledby={`${id}-title`} className="rounded-2xl border bg-card p-5">
+    <section aria-labelledby={`${id}-title`} className="glow-border rounded-2xl border bg-card p-5">
       <h2 id={`${id}-title`} className="flex items-center gap-2 font-semibold">
         <Sparkles className="size-4 text-accent-ink" aria-hidden="true" />
         Registra con una frase

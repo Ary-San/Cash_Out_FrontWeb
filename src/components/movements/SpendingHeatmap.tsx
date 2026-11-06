@@ -4,6 +4,7 @@ import { CATEGORY_META } from '@/lib/categories'
 import { todayIso } from '@/lib/dates'
 import { formatSoles } from '@/lib/format'
 import { formatMonthLong } from '@/lib/cashFlow'
+import { heatLevels } from '@/lib/heat'
 import {
   currentMonth,
   daysInMonth,
@@ -19,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-const LEGEND = [16, 35, 55, 75, 90]
+const LEGEND = [1, 2, 3, 4, 5]
 
 interface SpendingHeatmapProps {
   month: string
@@ -37,7 +38,7 @@ export function SpendingHeatmap({ month, summary, onMonthChange, onShowDay, clas
   const fallback = isCurrent ? today : (summary?.priciestDay?.date ?? `${month}-01`)
   const activeDate = active?.month === month ? active.date : fallback
 
-  const maxSpent = Math.max(0, ...[...(summary?.days.values() ?? [])].map((day) => day.spent))
+  const levels = heatLevels(summary?.days.values() ?? [])
   const days = Array.from({ length: daysInMonth(month) }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`)
   const activeDay = summary?.days.get(activeDate)
   const monthName = formatMonthLong(month)
@@ -102,7 +103,9 @@ export function SpendingHeatmap({ month, summary, onMonthChange, onShowDay, clas
                 )
               }
               if (!summary) return <Skeleton key={date} className="aspect-square rounded-[10px]" />
-              const level = day && day.spent > 0 ? 16 + 74 * (day.spent / maxSpent) : 0
+              const level = levels.get(date) ?? 0
+              // Las categorias del dia, cada una con su color (hasta cuatro).
+              const categories = [...new Set(day?.movements.filter((m) => m.kind === 'EXPENSE').map((m) => m.category ?? 'OTHER'))].slice(0, 4)
               return (
                 <button
                   key={date}
@@ -113,8 +116,9 @@ export function SpendingHeatmap({ month, summary, onMonthChange, onShowDay, clas
                   onFocus={() => setActive({ month, date })}
                   onClick={() => setActive({ month, date })}
                   className={cn(
-                    'relative aspect-square rounded-[10px] outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring',
+                    'relative aspect-square rounded-[10px] outline-none transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.34,1.56,.64,1)] hover:z-10 hover:scale-108 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none',
                     level === 0 && 'bg-muted',
+                    level === 5 && 'shadow-[inset_0_0_0_1px_rgb(255_255_255/0.14)]',
                     date === activeDate && 'ring-2 ring-foreground ring-offset-2 ring-offset-card',
                   )}
                   style={level > 0 ? { background: heat(level) } : undefined}
@@ -122,13 +126,20 @@ export function SpendingHeatmap({ month, summary, onMonthChange, onShowDay, clas
                   <span
                     className={cn(
                       'absolute top-1 left-1.5 text-[10.5px]',
-                      level > 60 ? 'text-primary-foreground' : 'text-muted-foreground',
+                      level >= 4 ? 'font-semibold text-white' : level > 0 ? 'text-heat-ink' : 'text-muted-foreground',
                     )}
                   >
                     {label}
                   </span>
+                  {categories.length > 0 && (
+                    <span aria-hidden="true" className="absolute bottom-1.5 left-1.5 flex gap-0.5">
+                      {categories.map((category) => (
+                        <span key={category} className="size-1.5 rounded-full ring-[1.5px] ring-card" style={{ background: CATEGORY_META[category].color }} />
+                      ))}
+                    </span>
+                  )}
                   {day && day.earned > 0 && (
-                    <span className="absolute right-1.5 bottom-1.5 size-1.5 rounded-full bg-income" />
+                    <span className="absolute right-1.5 bottom-1.5 size-1.5 rounded-full bg-income ring-[1.5px] ring-card" />
                   )}
                 </button>
               )
@@ -155,12 +166,14 @@ export function SpendingHeatmap({ month, summary, onMonthChange, onShowDay, clas
             <ul className="mt-3.5 space-y-2">
               {activeDay.movements.slice(0, 4).map((movement) => {
                 const income = movement.kind === 'INCOME'
-                const Icon = income ? ArrowDownLeft : CATEGORY_META[movement.category ?? 'OTHER'].icon
+                const meta = CATEGORY_META[movement.category ?? 'OTHER']
+                const Icon = income ? ArrowDownLeft : meta.icon
                 return (
                   <li key={`${movement.kind}-${movement.id}`} className="flex items-center gap-2.5 text-[13px]">
                     <span
                       aria-hidden="true"
                       className={cn('grid size-7 shrink-0 place-items-center rounded-lg bg-muted', income && 'text-income')}
+                      style={income ? undefined : { color: meta.color, background: `color-mix(in srgb, ${meta.color} 16%, transparent)` }}
                     >
                       <Icon className="size-3.5" />
                     </span>
@@ -185,7 +198,7 @@ export function SpendingHeatmap({ month, summary, onMonthChange, onShowDay, clas
           )}
           <p className="mt-auto pt-4 text-[13px] leading-relaxed text-muted-foreground">
             {summary?.priciestDay
-              ? `Tu día más caro de ${monthName} fue el ${Number(summary.priciestDay.date.slice(8))} (${formatSoles(summary.priciestDay.spent)}). Pasa el mouse o toca un día para ver qué pasó.`
+              ? `Tu día más caro de ${monthName} fue el ${Number(summary.priciestDay.date.slice(8))} (${formatSoles(summary.priciestDay.spent)}). Los puntos de colores son las categorías de ese día. Pasa el mouse o toca un día para ver qué pasó.`
               : summary
                 ? `No registraste gastos en ${monthName}.`
                 : null}
@@ -196,9 +209,9 @@ export function SpendingHeatmap({ month, summary, onMonthChange, onShowDay, clas
   )
 }
 
-/** El mismo tono del gasto, mas o menos transparente: una sola escala, de claro a oscuro. */
-function heat(percent: number): string {
-  return `color-mix(in oklab, var(--expense) ${percent.toFixed(0)}%, transparent)`
+/** Uno de los cinco tonos fijos del calendario (--heat-1 a --heat-5). */
+function heat(level: number): string {
+  return `var(--heat-${level})`
 }
 
 function countLabel(count: number): string {

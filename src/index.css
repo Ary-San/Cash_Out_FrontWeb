@@ -48,6 +48,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-heat-ink: var(--heat-ink);
   --color-signal-up: var(--signal-up);
   --color-signal-down: var(--signal-down);
   --color-silver: var(--silver);
@@ -132,6 +133,15 @@
   --series-5: #d66a88;
   --series-6: #8673d1;
   --series-7: #2d9a85;
+
+  /* Calendario de gasto: el malva de gasto en cinco tonos fijos, de palido a ciruela.
+     Igual en los dos temas: mas claro es siempre menos gasto. */
+  --heat-1: #eee2eb;
+  --heat-2: #d4b3cb;
+  --heat-3: #b07fa5;
+  --heat-4: #7f5175;
+  --heat-5: #4f2649;
+  --heat-ink: #2e1530;
 
   --sidebar: var(--background);
   --sidebar-foreground: var(--foreground);
@@ -274,3 +284,41 @@
   animation: none;
   mix-blend-mode: normal;
 }
+
+/* "Registra con una frase": al escribir, el borde gira con los colores de las categorias. */
+@property --glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.glow-border {
+  position: relative;
+  isolation: isolate;
+}
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--glow-angle), var(--series-1), var(--series-2), var(--series-3), var(--series-4), var(--series-5), var(--series-1));
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 0.3s;
+  animation: glow-spin 6s linear infinite;
+}
+.glow-border:focus-within::before {
+  opacity: 1;
+}
+@keyframes glow-spin {
+  to {
+    --glow-angle: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-border::before {
+    animation: none;
+  }
+}
+

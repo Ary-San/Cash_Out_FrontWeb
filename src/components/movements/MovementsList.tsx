@@ -437,7 +437,7 @@ function MovementRow({ movement, selected, wide, onSelect, returnState }: Moveme
   return (
     <li
       className={cn(
-        'relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 sm:grid-cols-[4.5rem_minmax(0,1fr)_9.5rem_8rem] sm:px-5',
+        'group/row relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b px-4 py-3 transition-[background-color,transform,box-shadow] duration-200 hover:z-10 hover:-translate-y-px hover:bg-card hover:shadow-[0_8px_18px_-10px_rgb(24_25_40/0.3)] motion-reduce:transition-none sm:grid-cols-[4.5rem_minmax(0,1fr)_9.5rem_8rem] sm:px-5',
         selected && 'bg-muted/60 shadow-[inset_3px_0_0_var(--accent-ink)]',
       )}
     >
@@ -445,7 +445,7 @@ function MovementRow({ movement, selected, wide, onSelect, returnState }: Moveme
       <span className="flex min-w-0 items-center gap-3">
         <span
           aria-hidden="true"
-          className={cn('grid size-8 shrink-0 place-items-center rounded-[10px]', income ? 'bg-income/15 text-income' : 'bg-muted')}
+          className={cn('grid size-8 shrink-0 place-items-center rounded-[10px] transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)] group-hover/row:scale-110 group-hover/row:-rotate-5 motion-reduce:transition-none', income ? 'bg-income/15 text-income' : 'bg-muted')}
         >
           <Icon className="size-4" style={category ? { color: category.color } : undefined} />
         </span>
