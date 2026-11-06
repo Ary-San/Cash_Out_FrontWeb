@@ -1,8 +1,10 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Plus } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useApiQuery } from '@/hooks/useApiQuery'
 import { buildAlerts } from '@/lib/dashboardAlerts'
+import { goalForecast } from '@/lib/goalForecast'
 import { firstName } from '@/lib/format'
 import { currentMonth, daysInMonth, shiftMonth } from '@/lib/monthOverview'
 import { monthPace } from '@/lib/monthPace'
@@ -27,6 +29,21 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const wallet = useApiQuery(['token-wallet'], (signal) => walletService.get(signal))
   const goals = useApiQuery(['goals'], (signal) => goalService.list(signal))
+  // Los aportes de las metas en curso: para decir cuando llega cada una con el ritmo real.
+  const running = goals.data?.filter((goal) => goal.status === 'IN_PROGRESS').map((goal) => goal.id)
+  const contributions = useApiQuery(['goal-contributions', running ?? null], (signal) =>
+    running ? Promise.all(running.map(async (goalId) => ({ goalId, items: await goalService.contributions(goalId, signal) }))) : Promise.resolve(null),
+  )
+  const forecasts = useMemo(
+    () =>
+      new Map(
+        (goals.data ?? []).map((goal) => {
+          const items = contributions.data?.find((entry) => entry.goalId === goal.id)?.items
+          return [goal.id, items ? goalForecast(goal, items) : null]
+        }),
+      ),
+    [goals.data, contributions.data],
+  )
   const portfolio = useApiQuery(['portfolio'], (signal) => portfolioService.get(signal))
   // Los ultimos movimientos tambien dicen si la cuenta es nueva: un grafico en cero no alcanza para saberlo.
   const recent = useApiQuery(['movements', 'recent'], (signal) => movementService.list({ page: 0, size: 5 }, signal))
@@ -82,14 +99,14 @@ export default function DashboardPage() {
               lastMonth.reload()
             }}
           />
-          <DashboardAlerts alerts={buildAlerts(goals.data, pace, previousName)} />
+          <DashboardAlerts alerts={buildAlerts(goals.data, pace, previousName, forecasts)} />
         </>
       )}
 
       <div className="grid gap-5 lg:grid-cols-3">
         {!isNewAccount && (
           <>
-            <GoalsListCard query={goals} />
+            <GoalsListCard query={goals} forecasts={forecasts} />
             <CategorySplitCard pace={pace} previousName={previousName} />
           </>
         )}

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Plus, Target } from 'lucide-react'
 import { useApiQuery } from '@/hooks/useApiQuery'
 import { useCreateParam } from '@/hooks/useCreateParam'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { formatSoles } from '@/lib/format'
+import { goalForecast } from '@/lib/goalForecast'
 import type { GoalGrouping } from '@/lib/goals'
 import { goalService } from '@/services/goalService'
 import { savingsService } from '@/services/savingsService'
@@ -49,6 +50,12 @@ export default function GoalsPage() {
   const usePanel = isWide && all.length > 0
   const selected = all.find((goal) => goal.id === selectedId) ?? inProgress[0] ?? all[0]
   const byGoal = contributions.data ?? undefined
+  // A donde llega cada meta con lo que se viene aportando de verdad (los aportes ya se piden para el grafico).
+  const forecasts = useMemo(
+    () =>
+      new Map((goals.data ?? []).map((goal) => [goal.id, byGoal ? goalForecast(goal, byGoal.find((e) => e.goalId === goal.id)?.contributions ?? []) : null])),
+    [goals.data, byGoal],
+  )
   const saved = inProgress.reduce((sum, goal) => sum + goal.accumulatedAmount, 0)
   const target = inProgress.reduce((sum, goal) => sum + goal.targetAmount, 0)
 
@@ -118,7 +125,7 @@ export default function GoalsPage() {
         </div>
       ) : (
         <>
-          <GoalGauges goals={all} wide={usePanel} selectedId={selected?.id} onSelect={select} />
+          <GoalGauges goals={all} wide={usePanel} selectedId={selected?.id} onSelect={select} forecasts={forecasts} />
           <div className={usePanel ? 'grid items-start gap-5 lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]' : 'space-y-5'}>
             <div className="min-w-0 space-y-5">
               <GoalBoard
@@ -128,6 +135,7 @@ export default function GoalsPage() {
                 wide={usePanel}
                 selectedId={creating ? undefined : selected?.id}
                 onSelect={select}
+                forecasts={forecasts}
               />
               <ContributionsChart goals={all} contributions={byGoal} />
             </div>
@@ -140,6 +148,7 @@ export default function GoalsPage() {
                     key={selected.id}
                     goal={selected}
                     contributions={byGoal?.find((entry) => entry.goalId === selected.id)?.contributions}
+                    forecast={forecasts.get(selected.id)}
                     available={savings.data?.availableBalance}
                     onChanged={refresh}
                     onEdit={setEditing}

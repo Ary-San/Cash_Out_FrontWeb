@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react'
 import type { ApiQuery } from '@/hooks/useApiQuery'
 import { goalPace } from '@/lib/dashboard'
 import { formatSoles } from '@/lib/format'
+import { forecastLabel, type GoalForecast } from '@/lib/goalForecast'
 import { cn } from '@/lib/utils'
 import type { SavingsGoal } from '@/types/goals'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -10,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 const pct = (value: number) => Math.round(value * 100)
 
 /** Las metas en curso: cuanto llevan frente a lo que deberian llevar por el tiempo que paso. */
-export function GoalsListCard({ query }: { query: ApiQuery<SavingsGoal[]> }) {
+export function GoalsListCard({ query, forecasts }: { query: ApiQuery<SavingsGoal[]>; forecasts?: Map<number, GoalForecast | null> }) {
   const goals = query.data?.filter((goal) => goal.status === 'IN_PROGRESS').map((goal) => ({ goal, pace: goalPace(goal) }))
   const saved = goals?.reduce((sum, g) => sum + g.goal.accumulatedAmount, 0) ?? 0
 
@@ -60,6 +61,10 @@ export function GoalsListCard({ query }: { query: ApiQuery<SavingsGoal[]> }) {
                 </span>
                 {pct(pace.progress)} % · deberías llevar {pct(pace.elapsed)} %
               </p>
+              {(() => {
+                const eta = forecasts?.get(goal.id) && forecastLabel(forecasts.get(goal.id)!)
+                return eta && <p className={cn('text-xs font-medium', eta.late ? 'text-warning' : 'text-gain')}>{eta.text}</p>
+              })()}
             </li>
           ))}
         </ul>

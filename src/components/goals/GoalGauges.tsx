@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { goalPace } from '@/lib/dashboard'
+import { forecastLabel, type GoalForecast } from '@/lib/goalForecast'
 import { formatSoles } from '@/lib/format'
 import { goalStatusTone, remainingAmount } from '@/lib/goals'
 import { formatDayMonth } from '@/lib/movements'
@@ -15,10 +16,12 @@ interface GoalGaugesProps {
   wide: boolean
   selectedId: number | undefined
   onSelect: (goalId: number) => void
+  /** Fecha de llegada de cada meta con su ritmo real. */
+  forecasts?: Map<number, GoalForecast | null>
 }
 
 /** Las metas en curso mas proximas, cada una con una marca de donde deberia ir hoy. */
-export function GoalGauges({ goals, wide, selectedId, onSelect }: GoalGaugesProps) {
+export function GoalGauges({ goals, wide, selectedId, onSelect, forecasts }: GoalGaugesProps) {
   const now = new Date()
   const inProgress = goals
     .filter((goal) => goal.status === 'IN_PROGRESS')
@@ -92,6 +95,10 @@ export function GoalGauges({ goals, wide, selectedId, onSelect }: GoalGaugesProp
                 <span className={cn('mt-1.5 inline-flex rounded-full border border-current px-2 py-px text-[11.5px]', TONE_TEXT[tone])}>
                   {label}
                 </span>
+                {(() => {
+                  const eta = forecasts?.get(goal.id) && forecastLabel(forecasts.get(goal.id)!)
+                  return eta && <span className={cn('mt-1 block text-[11.5px] font-medium', eta.late ? 'text-warning' : 'text-gain')}>{eta.text}</span>
+                })()}
               </span>
             </GoalTarget>
           )
