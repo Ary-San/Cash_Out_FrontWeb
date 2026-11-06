@@ -1,5 +1,6 @@
 import { goalPace } from '@/lib/dashboard'
 import { formatSoles } from '@/lib/format'
+import { forecastMonthLong, type GoalForecast } from '@/lib/goalForecast'
 import { goalDateLine, goalStatusTone, groupGoals, type GoalGrouping } from '@/lib/goals'
 import { cn } from '@/lib/utils'
 import type { SavingsGoal } from '@/types/goals'
@@ -18,10 +19,12 @@ interface GoalBoardProps {
   wide: boolean
   selectedId: number | undefined
   onSelect: (goalId: number) => void
+  /** Fecha de llegada de cada meta con su ritmo real. */
+  forecasts?: Map<number, GoalForecast | null>
 }
 
 /** Todas las metas en columnas, por estado o por cuando vencen. */
-export function GoalBoard({ goals, grouping, onGroupingChange, wide, selectedId, onSelect }: GoalBoardProps) {
+export function GoalBoard({ goals, grouping, onGroupingChange, wide, selectedId, onSelect, forecasts }: GoalBoardProps) {
   const now = new Date()
   const columns = groupGoals(goals, grouping)
 
@@ -81,7 +84,7 @@ export function GoalBoard({ goals, grouping, onGroupingChange, wide, selectedId,
                         selected={selected}
                         onSelect={onSelect}
                         className={cn(
-                          'block w-full rounded-xl border bg-card p-3 transition-[border-color,box-shadow] hover:border-foreground/30',
+                          'block w-full rounded-xl border bg-card p-3 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-[0_10px_20px_-12px_rgb(24_25_40/0.35)] motion-reduce:transition-none',
                           wide && selected && 'border-accent-ink ring-3 ring-accent-ink/20',
                         )}
                       >
@@ -98,6 +101,11 @@ export function GoalBoard({ goals, grouping, onGroupingChange, wide, selectedId,
                         <span className="mt-2 block truncate text-[11.5px] text-muted-foreground tabular-nums">
                           {formatSoles(goal.accumulatedAmount)} de {formatSoles(goal.targetAmount)}
                         </span>
+                        {forecasts?.get(goal.id)?.arrival && (
+                          <span className="mt-1 block text-[11.5px] text-muted-foreground">
+                            A tu ritmo: <b className="font-semibold text-foreground">{forecastMonthLong(forecasts.get(goal.id)!.arrival!)}</b>
+                          </span>
+                        )}
                       </GoalTarget>
                     </li>
                   )

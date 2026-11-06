@@ -6,6 +6,8 @@ import { toApiError, userMessage } from '@/api/errors'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { toCents } from '@/lib/amount'
 import { goalPace } from '@/lib/dashboard'
+import { todayIso } from '@/lib/dates'
+import { forecastMonthLong, type GoalForecast } from '@/lib/goalForecast'
 import { formatServerDate, formatSoles } from '@/lib/format'
 import { CONTRIBUTION_SOURCE_LABEL, goalAdvice, goalMilestones, goalStatusTone, remainingAmount } from '@/lib/goals'
 import { cn } from '@/lib/utils'
@@ -15,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { announceContribution } from './announceContribution'
 import { DeleteGoalDescription } from './DeleteGoalDescription'
+import { ForecastChart } from './ForecastChart'
 import { TONE_FILL, TONE_TEXT } from './goalStyles'
 
 const QUICK_AMOUNTS = [20, 50, 100]
@@ -24,6 +27,8 @@ interface GoalDetailPanelProps {
   goal: SavingsGoal
   /** Del mas reciente al mas antiguo; undefined mientras cargan. */
   contributions: Contribution[] | undefined
+  /** A donde llega con lo que se viene aportando; null si no esta en curso. */
+  forecast?: GoalForecast | null
   /** Saldo que todavia no esta reservado. */
   available: number | undefined
   onChanged: () => void
@@ -32,7 +37,7 @@ interface GoalDetailPanelProps {
 }
 
 /** La meta elegida en el tablero: como va, sus hitos, sus aportes y lo que se puede hacer con ella. */
-export function GoalDetailPanel({ goal, contributions, available, onChanged, onEdit, onOtherAmount }: GoalDetailPanelProps) {
+export function GoalDetailPanel({ goal, contributions, forecast, available, onChanged, onEdit, onOtherAmount }: GoalDetailPanelProps) {
   const [confirming, setConfirming] = useState(false)
   const confirmTitle = useId()
   const pace = goalPace(goal, new Date())
@@ -99,6 +104,52 @@ export function GoalDetailPanel({ goal, contributions, available, onChanged, onE
       <p className={cn('mt-2.5 text-[13px] leading-relaxed', advice.tone === 'late' ? 'text-destructive' : 'text-muted-foreground')}>
         {advice.text}
       </p>
+
+      {forecast && (
+        <section aria-labelledby="meta-ritmo" className="mt-4 rounded-xl border bg-accent/40 px-3.5 pt-3 pb-3.5">
+          <h3 id="meta-ritmo" className="text-xs tracking-wider text-muted-foreground uppercase">
+            A tu ritmo
+          </h3>
+          <div className="mt-2">
+            <ForecastChart goal={goal} forecast={forecast} today={todayIso()} />
+          </div>
+          <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground" aria-hidden="true">
+            <li><span className="mr-1.5 inline-block w-3.5 border-t-2 border-accent-ink align-middle" />Ahorrado</li>
+            <li><span className="mr-1.5 inline-block w-3.5 border-t-2 border-dashed border-accent-ink align-middle" />A tu ritmo</li>
+            <li><span className="mr-1.5 inline-block w-3.5 border-t-2 border-dotted border-gain align-middle" />Para llegar a tiempo</li>
+          </ul>
+          <p className="mt-2.5 text-[13px] leading-relaxed">
+            {forecast.arrival ? (
+              <>
+                Con tus aportes de los últimos meses (<b className="font-semibold">{formatSoles(forecast.rate)} al mes</b>) llegas en{' '}
+                <b className="font-semibold">{forecastMonthLong(forecast.arrival)}</b>
+                {forecast.monthsLate === 0
+                  ? ', justo para la fecha límite.'
+                  : `, ${Math.abs(forecast.monthsLate!) === 1 ? 'un mes' : `${Math.abs(forecast.monthsLate!)} meses`} ${forecast.monthsLate! > 0 ? 'después' : 'antes'} de la fecha límite.`}
+              </>
+            ) : (
+              'No hay aportes en los últimos meses, así que no podemos calcular cuándo llegas.'
+            )}
+          </p>
+          {(forecast.monthsLate === null || forecast.monthsLate > 0) && forecast.needed > 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+              <span>
+                Para llegar a tiempo aporta <b className="font-semibold text-foreground">{formatSoles(forecast.needed)} al mes</b>
+                {forecast.rate > 0 && ` (${formatSoles(forecast.needed - forecast.rate)} más que ahora)`}.
+              </span>
+              {inProgress && (
+                <Button
+                  size="sm"
+                  disabled={contribute.isPending || toCents(Math.min(forecast.needed, remaining)) > limit}
+                  onClick={() => contribute.run(Math.min(forecast.needed, remaining))}
+                >
+                  Aportar {formatSoles(Math.min(forecast.needed, remaining))}
+                </Button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <h3 className="mt-5 text-xs tracking-wider text-muted-foreground uppercase">Hitos</h3>
       <ul className="mt-2 space-y-1.5">

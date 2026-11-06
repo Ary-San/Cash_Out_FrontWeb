@@ -220,4 +220,29 @@ describe('GoalsPage', () => {
     expect(await screen.findByText('Todavía no tienes metas')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Crear mi primera meta/ })).toBeInTheDocument()
   })
+
+  it('con el ritmo real de aportes dice cuando llega cada meta', async () => {
+    renderAt('/metas')
+
+    // La laptop junto S/ 380 entre agosto y octubre (S/ 126.67 al mes): le faltan S/ 1,220, llega en agosto de 2027.
+    const gauges = await screen.findByRole('region', { name: 'Metas en curso' })
+    expect(await within(gauges).findByText('Llegas en ago · 5 meses tarde')).toBeInTheDocument()
+    // El viaje no tiene aportes recientes: no se inventa una fecha.
+    expect(within(gauges).getByRole('link', { name: /Viaje a Cusco/ })).not.toHaveTextContent('Llegas en')
+  })
+
+  it('en el panel, a tu ritmo dice cuanto aportar al mes para llegar a tiempo', async () => {
+    media.wide = true
+    renderAt('/metas')
+
+    await screen.findByRole('complementary', { name: 'Viaje a Cusco' })
+    await userEvent.click(within(board()).getByRole('button', { name: /Laptop/ }))
+    const panel = screen.getByRole('complementary', { name: 'Laptop' })
+    const pace = await within(panel).findByRole('region', { name: 'A tu ritmo' })
+    expect(within(pace).getByText(/agosto de 2027/)).toBeInTheDocument()
+    // Faltan S/ 1,220 en 5 meses: S/ 244, redondeado a S/ 245.
+    expect(within(pace).getByText(/S\/\s245\.00 al mes/)).toBeInTheDocument()
+    expect(within(pace).getByRole('button', { name: /^Aportar S\/\s245\.00$/ })).toBeInTheDocument()
+  })
 })
+
