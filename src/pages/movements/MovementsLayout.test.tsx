@@ -135,4 +135,30 @@ describe('MovementsLayout', () => {
     expect(screen.queryByRole('heading', { name: 'Tus movimientos' })).not.toBeInTheDocument()
     expect(month).not.toHaveBeenCalled()
   })
+
+  it('encuentra los gastos fijos de los dos meses anteriores y dice si ya se pagaron', async () => {
+    const gym = (date: string, id: number) => movement({ id, label: 'Gimnasio', category: 'OTHER', amount: 35, date })
+    month.mockImplementation(async (m) =>
+      m === '2026-10' ? [gym('2026-10-03', 10), menu] : m === '2026-09' ? [gym('2026-09-03', 11)] : [gym('2026-08-03', 12)],
+    )
+    renderAt('/movimientos/todos')
+
+    const card = (await screen.findByText('Se repiten cada mes')).closest('section')!
+    expect(await within(card).findByText('Gimnasio')).toBeInTheDocument()
+    expect(within(card).getByText('Pagado')).toBeInTheDocument()
+    expect(within(card).getByText(/^Día 3 · Otros$/)).toBeInTheDocument()
+  })
+
+  it('al final resume el mes contra el anterior y las cifras se abren con Mostrar mas', async () => {
+    month.mockImplementation(async (m) => (m === '2026-10' ? [menu, beca].map((x) => ({ ...x, date: x.date.replace('2026-09', '2026-10') })) : [taxi]))
+    renderAt('/movimientos/todos')
+
+    const card = (await screen.findByRole('heading', { name: /al día 20/ })).closest('section')!
+    expect(within(card).getByText(/Gastaste S\/\s?1\.50 menos que a esta altura de setiembre/)).toBeInTheDocument()
+    const more = within(card).getByRole('button', { name: /Mostrar más/ })
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(more)
+    expect(within(card).getByRole('button', { name: /Mostrar menos/ })).toHaveAttribute('aria-expanded', 'true')
+  })
 })
+

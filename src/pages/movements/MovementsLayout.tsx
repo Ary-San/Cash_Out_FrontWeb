@@ -4,12 +4,18 @@ import { Plus } from 'lucide-react'
 import { useApiQuery } from '@/hooks/useApiQuery'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { formatSoles } from '@/lib/format'
-import { currentMonth, formatMonthTitle, monthFromParam, summarizeMonth } from '@/lib/monthOverview'
+import { formatMonthLong } from '@/lib/cashFlow'
+import { todayIso } from '@/lib/dates'
+import { currentMonth, daysInMonth, formatMonthTitle, monthFromParam, shiftMonth, summarizeMonth } from '@/lib/monthOverview'
+import { monthPace } from '@/lib/monthPace'
+import { recurringExpenses } from '@/lib/recurring'
 import { movementService } from '@/services/movementService'
 import { AssistantComposer } from '@/components/assistant/AssistantComposer'
 import { ErrorState } from '@/components/feedback/ErrorState'
 import { CategoryDonut } from '@/components/movements/CategoryDonut'
+import { MonthCompareCard } from '@/components/movements/MonthCompareCard'
 import type { MovementsOutletContext } from '@/components/movements/MovementsList'
+import { RecurringCard } from '@/components/movements/RecurringCard'
 import { SpendingHeatmap } from '@/components/movements/SpendingHeatmap'
 import { Button } from '@/components/ui/button'
 
@@ -28,6 +34,23 @@ function MovementsOverview() {
 
   const query = useApiQuery(['movements', 'month', month, version], (signal) => movementService.month(month, signal))
   const summary = useMemo(() => (query.data ? summarizeMonth(query.data) : undefined), [query.data])
+  // Los dos meses anteriores: para comparar a la misma altura y para encontrar los gastos fijos.
+  const previousMonth = shiftMonth(month, -1)
+  const previous = useApiQuery(['movements', 'month', previousMonth, version], (signal) => movementService.month(previousMonth, signal))
+  const beforePrevious = useApiQuery(['movements', 'month', shiftMonth(month, -2), version], (signal) => movementService.month(shiftMonth(month, -2), signal))
+  const today = todayIso()
+  const isCurrent = today.startsWith(month)
+  const pace = useMemo(
+    () => (query.data && previous.data ? monthPace(query.data, previous.data, month, previousMonth, isCurrent ? today : `${month}-${daysInMonth(month)}`) : undefined),
+    [query.data, previous.data, month, previousMonth, isCurrent, today],
+  )
+  const recurring = useMemo(
+    () =>
+      query.data && previous.data && beforePrevious.data
+        ? recurringExpenses(query.data, previous.data, beforePrevious.data, isCurrent ? Number(today.slice(8, 10)) : daysInMonth(month))
+        : undefined,
+    [query.data, previous.data, beforePrevious.data, isCurrent, today, month],
+  )
 
   const changeParams = (change: (params: URLSearchParams) => void, replace: boolean) =>
     setSearchParams(
@@ -89,19 +112,25 @@ function MovementsOverview() {
       {query.error && !query.data ? (
         <ErrorState error={query.error} onRetry={query.reload} title="No pudimos cargar el resumen del mes" />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-3">
-          <SpendingHeatmap
-            className="lg:col-span-2"
-            month={month}
-            summary={summary}
-            onMonthChange={changeMonth}
-            onShowDay={showDay}
-          />
-          <CategoryDonut month={month} summary={summary} />
-        </div>
+        <>
+          <SpendingHeatmap month={month} summary={summary} onMonthChange={changeMonth} onShowDay={showDay} />
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+            <CategoryDonut month={month} summary={summary} />
+            <RecurringCard items={recurring} spent={summary?.spent ?? 0} />
+          </div>
+        </>
       )}
 
       <Outlet context={context} />
+
+      {pace && (
+        <MonthCompareCard
+          pace={pace}
+          monthName={formatMonthLong(month)}
+          previousName={formatMonthLong(previousMonth)}
+          incomes={query.data?.filter((m) => m.kind === 'INCOME').length ?? 0}
+        />
+      )}
     </>
   )
 }
