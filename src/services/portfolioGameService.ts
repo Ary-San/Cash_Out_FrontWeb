@@ -33,4 +33,10 @@ export const portfolioGameService = {
   async cancel(code: string): Promise<void> {
     await http.post(`/portfolio-rooms/${code}/cancel`)
   },
+
+  /** Una sala propia con uno mismo como unico jugador; empieza cuando el portafolio esta listo. */
+  async playSolo(): Promise<PortfolioGameView> {
+    const room = await portfolioGameService.create()
+    return action(room.code, 'join')
+  },
 }

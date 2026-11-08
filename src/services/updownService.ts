@@ -24,4 +24,11 @@ export const updownService = {
   async cancel(code: string): Promise<void> {
     await http.post(`/updown-rooms/${code}/cancel`)
   },
+
+  /** Una sala propia con uno mismo como unico jugador, ya empezada. */
+  async playSolo(): Promise<UpDownView> {
+    const room = await updownService.create()
+    await action(room.code, 'join')
+    return action(room.code, 'start')
+  },
 }

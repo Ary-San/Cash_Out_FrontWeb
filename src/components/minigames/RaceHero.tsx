@@ -1,5 +1,7 @@
 import { CreateRaceForm, JoinRaceForm } from '@/components/race/RaceForms'
 import { RACE_RULES } from '@/components/race/raceRules'
+import { SoloPlayButton } from '@/components/minigames/SoloPlayButton'
+import { raceService } from '@/services/raceService'
 
 const PODIUM = [
   { place: '2.º', share: 30, height: 'h-16' },
@@ -37,6 +39,10 @@ export function RaceHero() {
             fichas.
           </p>
           <CreateRaceForm className="mt-6" />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <SoloPlayButton play={raceService.playSolo} basePath="/carrera" />
+            <span className="text-xs text-muted-foreground">Gratis y sin pozo: para practicar a tu ritmo.</span>
+          </div>
           <div className="mt-5">
             <p className="text-sm font-medium">¿Ya tienes un código?</p>
             <JoinRaceForm className="mt-2 max-w-sm" />

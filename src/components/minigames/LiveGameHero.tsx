@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { toApiError, userMessage } from '@/api/errors'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { JoinRaceForm } from '@/components/race/RaceForms'
+import { SoloPlayButton } from '@/components/minigames/SoloPlayButton'
 import { Button } from '@/components/ui/button'
 
 interface LiveGameHeroProps {
@@ -17,10 +18,12 @@ interface LiveGameHeroProps {
   create: () => Promise<{ code: string }>
   /** La ruta del juego, como "/minijuegos/sube-o-baja". */
   basePath: string
+  /** Abre una sala propia para jugar solo; quien la crea va directo a jugar. */
+  playSolo: () => Promise<{ code: string }>
 }
 
 /** Un juego en vivo con la clase: crear o entrar a una sala, con las reglas al lado. */
-export function LiveGameHero({ id, eyebrow, title, description, rules, create, basePath }: LiveGameHeroProps) {
+export function LiveGameHero({ id, eyebrow, title, description, rules, create, basePath, playSolo }: LiveGameHeroProps) {
   const navigate = useNavigate()
   const open = useAsyncAction(async () => {
     try {
@@ -42,10 +45,13 @@ export function LiveGameHero({ id, eyebrow, title, description, rules, create, b
             {title}
           </h2>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">{description}</p>
-          <Button className="mt-6" onClick={() => open.run()} disabled={open.isPending}>
-            {open.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-            Crear sala
-          </Button>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button onClick={() => open.run()} disabled={open.isPending}>
+              {open.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+              Crear sala
+            </Button>
+            <SoloPlayButton play={playSolo} basePath={basePath} />
+          </div>
           <div className="mt-5">
             <p className="text-sm font-medium">¿Ya tienes un código?</p>
             <JoinRaceForm basePath={basePath} className="mt-2 max-w-sm" />

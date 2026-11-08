@@ -8,9 +8,11 @@ import { useRaceRoom } from '@/hooks/useRaceRoom'
 import { formatTokens } from '@/lib/format'
 import { formatSignedPercent, formatUsd } from '@/lib/market'
 import { formatRaceDate } from '@/lib/race'
+import { isSolo } from '@/lib/soloPlay'
 import { raceService } from '@/services/raceService'
 import type { RaceSide, RaceView } from '@/types/race'
 import { EmptyState } from '@/components/feedback/EmptyState'
+import { SoloPlayButton } from '@/components/minigames/SoloPlayButton'
 import { PageLoader } from '@/components/feedback/PageLoader'
 import { RaceChart } from '@/components/race/RaceChart'
 import { RaceRanking } from '@/components/race/RaceRanking'
@@ -280,6 +282,7 @@ function Result({ view }: { view: RaceView }) {
   const me = view.me
   const scenario = view.scenario
   const refunded = view.ranking.length < 3 && view.entryFee > 0
+  const solo = isSolo(view)
   const realChange = scenario ? (scenario.realClose / scenario.realOpen - 1) * 100 : null
 
   return (
@@ -301,7 +304,12 @@ function Result({ view }: { view: RaceView }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className={cn('rounded-xl border p-5 text-center', me.prize > 0 && 'border-gain/40 bg-gain/10')}>
+            {solo && view.entryFee === 0 ? (
+              <p className="rounded-xl border p-5 text-center text-sm text-muted-foreground">
+                Jugaste solo, sin fichas en juego. Con la clase, el podio se reparte el pozo.
+              </p>
+            ) : (
+              <div className={cn('rounded-xl border p-5 text-center', me.prize > 0 && 'border-gain/40 bg-gain/10')}>
               <p className="text-sm text-muted-foreground">
                 {me.prize > 0
                   ? 'Ganaste del pozo'
@@ -312,7 +320,8 @@ function Result({ view }: { view: RaceView }) {
               <p className={cn('mt-1 font-display text-4xl', me.prize > 0 && 'text-gain')}>
                 {me.prize > 0 ? `+${formatTokens(me.prize)}` : refunded ? formatTokens(view.entryFee) : '0 fichas'}
               </p>
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -350,6 +359,7 @@ function Result({ view }: { view: RaceView }) {
         </Card>
       )}
 
+      {solo && <SoloPlayButton play={raceService.playSolo} basePath="/carrera" label="Jugar de nuevo" variant="default" className="w-full" />}
       <div className="grid grid-cols-2 gap-3">
         <Button asChild variant="outline">
           <Link to="/carrera">Otra carrera</Link>

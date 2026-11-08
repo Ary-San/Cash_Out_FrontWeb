@@ -7,7 +7,9 @@ import type { UpDownPlayer, UpDownView } from '@/types/updown'
 import UpDownPlayerPage from './UpDownPlayerPage'
 
 vi.mock('@/hooks/useLiveRoom', () => ({ useLiveRoom: vi.fn() }))
-vi.mock('@/services/updownService', () => ({ updownService: { join: vi.fn(), vote: vi.fn() } }))
+vi.mock('@/services/updownService', () => ({
+  updownService: { join: vi.fn(), vote: vi.fn(), reveal: vi.fn(), next: vi.fn(), playSolo: vi.fn() },
+}))
 
 const room = vi.mocked(useLiveRoom)
 const vote = vi.mocked(updownService.vote)
@@ -90,5 +92,38 @@ describe('UpDownPlayerPage', () => {
     expect(screen.getByText('¡Acertaste!')).toBeInTheDocument()
     expect(screen.getByText('+300 pts')).toBeInTheDocument()
     expect(screen.getByText(/El miedo se contagió/)).toBeInTheDocument()
+    expect(screen.getByText('La siguiente ronda la abre el anfitrión.')).toBeInTheDocument()
+  })
+
+  it('jugando solo, el jugador revela sin esperar y abre la siguiente pregunta', async () => {
+    const voted = { ...me, voted: true, choice: 'UP' as const, bet: 100 }
+    const solo: UpDownView = { ...voting, host: true, ranking: [voted], me: voted }
+    vi.mocked(updownService.reveal).mockResolvedValue(solo)
+    renderPage(solo)
+
+    expect(screen.queryByText(/Esperando a los demás/)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Revelar ahora' }))
+    expect(updownService.reveal).toHaveBeenCalledWith('KX7Q2M')
+  })
+
+  it('jugando solo, al revelar el boton abre la siguiente pregunta', async () => {
+    const voted = { ...me, voted: true, choice: 'UP' as const, bet: 100, delta: -100, points: 900 }
+    const revealed: UpDownView = {
+      ...voting,
+      host: true,
+      phase: 'REVEAL',
+      question: {
+        ...voting.question!,
+        future: [100, 90],
+        reveal: { name: 'KRE', date: '2023-03-09', outcome: 'DOWN', changePercent: -18.4, lesson: 'El miedo se contagió.' },
+      },
+      ranking: [voted],
+      me: voted,
+    }
+    vi.mocked(updownService.next).mockResolvedValue(revealed)
+    renderPage(revealed)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente pregunta' }))
+    expect(updownService.next).toHaveBeenCalledWith('KX7Q2M')
   })
 })

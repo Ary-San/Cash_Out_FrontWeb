@@ -7,9 +7,11 @@ import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { useLiveRoom } from '@/hooks/useLiveRoom'
 import { formatChange } from '@/lib/format'
 import { adjustWeight, contributions, diversification, SECTOR_COLORS, totalWeight, WEIGHT_STEP } from '@/lib/portfolioGame'
+import { isSolo } from '@/lib/soloPlay'
 import { portfolioGameService } from '@/services/portfolioGameService'
 import type { PortfolioGameView, Weights } from '@/types/portfolioGame'
 import { EmptyState } from '@/components/feedback/EmptyState'
+import { SoloPlayButton } from '@/components/minigames/SoloPlayButton'
 import { PageLoader } from '@/components/feedback/PageLoader'
 import { MixBar, PortfolioBoard } from '@/components/portfolioGame/PortfolioBoards'
 import { Button } from '@/components/ui/button'
@@ -36,6 +38,8 @@ export default function PortfolioGamePlayerPage() {
     return <PageLoader label="Entrando a la sala…" />
   }
   if (view.phase === 'CANCELLED') return <Gone title="El anfitrión cerró la sala" />
+  // Jugando solo, el jugador hace lo del anfitrion: empezar y revelar cada etapa.
+  const solo = isSolo(view)
 
   return (
     <div className="mx-auto w-full max-w-md space-y-4">
@@ -48,7 +52,7 @@ export default function PortfolioGamePlayerPage() {
       </div>
 
       {view.phase === 'FINISHED' ? (
-        <Final view={view} />
+        <Final view={view} solo={solo} />
       ) : !view.me ? (
         view.phase === 'LOBBY' ? (
           <Join onJoin={() => act.run(() => portfolioGameService.join(code))} busy={act.isPending} />
@@ -59,11 +63,17 @@ export default function PortfolioGamePlayerPage() {
         <AllocationEditor
           view={view}
           busy={act.isPending}
-          onReady={(weights) => act.run(() => portfolioGameService.allocate(code, weights))}
+          onReady={(weights) =>
+            act.run(async () => {
+              const ready = await portfolioGameService.allocate(code, weights)
+              return solo ? portfolioGameService.start(code) : ready
+            })
+          }
           onEdit={() => act.run(() => portfolioGameService.unready(code))}
+          onStart={solo ? () => act.run(() => portfolioGameService.start(code)) : undefined}
         />
       ) : (
-        <MyRun view={view} />
+        <MyRun view={view} onNext={solo ? () => act.run(() => portfolioGameService.next(code)) : undefined} busy={act.isPending} />
       )}
     </div>
   )
@@ -96,9 +106,11 @@ interface AllocationEditorProps {
   busy: boolean
   onReady: (weights: Weights) => void
   onEdit: () => void
+  /** Solo jugando solo: el portafolio listo puede arrancar la simulacion. */
+  onStart?: () => void
 }
 
-function AllocationEditor({ view, busy, onReady, onEdit }: AllocationEditorProps) {
+function AllocationEditor({ view, busy, onReady, onEdit, onStart }: AllocationEditorProps) {
   const ready = view.me!.ready
   const [weights, setWeights] = useState<Weights>(() => view.me!.weights ?? {})
   const total = totalWeight(weights)
@@ -164,10 +176,17 @@ function AllocationEditor({ view, busy, onReady, onEdit }: AllocationEditorProps
 
       {ready ? (
         <div className="space-y-2">
-          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-            <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-gain" />
-            Listo. Esperando a que el anfitrión empiece…
-          </p>
+          {onStart ? (
+            <Button className="h-12 w-full rounded-xl text-base" onClick={onStart} disabled={busy}>
+              {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+              Empezar la simulación
+            </Button>
+          ) : (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+              <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-gain" />
+              Listo. Esperando a que el anfitrión empiece…
+            </p>
+          )}
           <Button variant="outline" className="h-12 w-full rounded-xl" onClick={onEdit} disabled={busy}>
             Cambiar mi portafolio
           </Button>
@@ -175,14 +194,21 @@ function AllocationEditor({ view, busy, onReady, onEdit }: AllocationEditorProps
       ) : (
         <Button className="h-12 w-full rounded-xl text-base" onClick={() => onReady(weights)} disabled={busy || total !== 100}>
           {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
-          {total === 100 ? 'Estoy listo' : `Asigna el 100 % (faltan ${100 - total} %)`}
+          {total !== 100 ? `Asigna el 100 % (faltan ${100 - total} %)` : onStart ? 'Empezar la simulación' : 'Estoy listo'}
         </Button>
       )}
     </div>
   )
 }
 
-function MyRun({ view }: { view: PortfolioGameView }) {
+interface MyRunProps {
+  view: PortfolioGameView
+  /** Solo jugando solo: el jugador revela la siguiente etapa. */
+  onNext?: () => void
+  busy: boolean
+}
+
+function MyRun({ view, onNext, busy }: MyRunProps) {
   const me = view.me!
   const result = me.result!
   const stage = view.stages[view.step - 1]
@@ -234,7 +260,14 @@ function MyRun({ view }: { view: PortfolioGameView }) {
           <p className="text-xs leading-relaxed text-muted-foreground">{stage.lesson}</p>
         </CardContent>
       </Card>
-      <p className="text-center text-sm text-muted-foreground">La siguiente etapa la revela el anfitrión.</p>
+      {onNext ? (
+        <Button className="h-12 w-full rounded-xl" onClick={onNext} disabled={busy}>
+          {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+          {view.step >= view.totalSteps - 1 ? 'Ver el resultado final' : 'Siguiente etapa'}
+        </Button>
+      ) : (
+        <p className="text-center text-sm text-muted-foreground">La siguiente etapa la revela el anfitrión.</p>
+      )}
     </div>
   )
 }
@@ -255,7 +288,7 @@ function Spectator({ view }: { view: PortfolioGameView }) {
   )
 }
 
-function Final({ view }: { view: PortfolioGameView }) {
+function Final({ view, solo }: { view: PortfolioGameView; solo: boolean }) {
   const me = view.me
 
   return (
@@ -283,6 +316,15 @@ function Final({ view }: { view: PortfolioGameView }) {
           <PortfolioBoard ranking={view.ranking} sectors={view.sectors} benchmark={view.benchmark} />
         </CardContent>
       </Card>
+      {solo && (
+        <SoloPlayButton
+          play={portfolioGameService.playSolo}
+          basePath="/minijuegos/arma-tu-portafolio"
+          label="Jugar de nuevo"
+          variant="default"
+          className="w-full"
+        />
+      )}
       <Button asChild variant="outline" className="w-full">
         <Link to="/minijuegos">Volver a minijuegos</Link>
       </Button>

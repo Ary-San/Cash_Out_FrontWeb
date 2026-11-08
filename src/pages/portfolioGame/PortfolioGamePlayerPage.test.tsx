@@ -8,7 +8,7 @@ import PortfolioGamePlayerPage from './PortfolioGamePlayerPage'
 
 vi.mock('@/hooks/useLiveRoom', () => ({ useLiveRoom: vi.fn() }))
 vi.mock('@/services/portfolioGameService', () => ({
-  portfolioGameService: { join: vi.fn(), allocate: vi.fn(), unready: vi.fn() },
+  portfolioGameService: { join: vi.fn(), allocate: vi.fn(), unready: vi.fn(), start: vi.fn(), next: vi.fn(), playSolo: vi.fn() },
 }))
 
 const room = vi.mocked(useLiveRoom)
@@ -42,6 +42,20 @@ function renderPage(view: PortfolioGameView) {
 }
 
 describe('PortfolioGamePlayerPage', () => {
+  it('jugando solo, dejar el portafolio listo tambien empieza la simulacion', async () => {
+    const solo: PortfolioGameView = { ...lobby, host: true }
+    allocate.mockResolvedValue(solo)
+    vi.mocked(portfolioGameService.start).mockResolvedValue({ ...solo, phase: 'RUNNING', step: 1 })
+    renderPage(solo)
+
+    for (let i = 0; i < 10; i++) await userEvent.click(screen.getByRole('button', { name: 'Agregar 10 % a Oro' }))
+    expect(screen.queryByText(/Esperando a que el anfitrión/)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar la simulación' }))
+
+    expect(allocate).toHaveBeenCalledWith('KX7Q2M', { gold: 100 })
+    await vi.waitFor(() => expect(portfolioGameService.start).toHaveBeenCalledWith('KX7Q2M'))
+  })
+
   it('reparte el 100 % de 10 en 10 y queda listo', async () => {
     allocate.mockResolvedValue(lobby)
     renderPage(lobby)

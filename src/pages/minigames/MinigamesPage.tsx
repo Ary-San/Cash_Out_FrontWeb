@@ -82,6 +82,7 @@ export default function MinigamesPage() {
         description="Una noticia real, el gráfico hasta ese día y un mes tapado. La clase apuesta qué pasó y al revelar se ve por qué: tasas, inflación, crisis bancarias y resultados de empresas."
         rules={UPDOWN_RULES}
         create={updownService.create}
+        playSolo={updownService.playSolo}
         basePath="/minijuegos/sube-o-baja"
       />
       <LiveGameHero
@@ -95,6 +96,7 @@ export default function MinigamesPage() {
         description="Reparte tu dinero entre 8 sectores y mira cómo le va en cinco semestres reales del mercado, entre la inflación de 2022, el boom de la IA y la guerra de aranceles."
         rules={PORTFOLIO_GAME_RULES}
         create={portfolioGameService.create}
+        playSolo={portfolioGameService.playSolo}
         basePath="/minijuegos/arma-tu-portafolio"
       />
 

@@ -5,10 +5,12 @@ import { Loader2, SearchX } from 'lucide-react'
 import { toApiError, userMessage } from '@/api/errors'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { useLiveRoom } from '@/hooks/useLiveRoom'
+import { isSolo } from '@/lib/soloPlay'
 import { betChips, choiceMeta, clampBet, minBet, UPDOWN_CHOICES } from '@/lib/updown'
 import { updownService } from '@/services/updownService'
 import type { UpDownChoice, UpDownView } from '@/types/updown'
 import { EmptyState } from '@/components/feedback/EmptyState'
+import { SoloPlayButton } from '@/components/minigames/SoloPlayButton'
 import { PageLoader } from '@/components/feedback/PageLoader'
 import { UpDownChart } from '@/components/updown/UpDownChart'
 import { LessonCard, UpDownRanking } from '@/components/updown/UpDownBoards'
@@ -29,6 +31,14 @@ export default function UpDownPlayerPage() {
       toast.error(userMessage(toApiError(error)))
     }
   })
+  // Jugando solo, el jugador hace lo del anfitrion: revelar y pasar de ronda.
+  const advance = useAsyncAction(async (run: (code: string) => Promise<UpDownView>) => {
+    try {
+      apply(await run(code))
+    } catch (error) {
+      toast.error(userMessage(toApiError(error)))
+    }
+  })
   const vote = useAsyncAction(async (choice: UpDownChoice, bet: number) => {
     try {
       apply(await updownService.vote(code, choice, bet))
@@ -42,6 +52,7 @@ export default function UpDownPlayerPage() {
     return <PageLoader label="Entrando a la sala…" />
   }
   if (view.phase === 'CANCELLED') return <Gone title="El anfitrión cerró la sala" />
+  const solo = isSolo(view)
 
   return (
     <div className="mx-auto w-full max-w-md space-y-4">
@@ -58,7 +69,7 @@ export default function UpDownPlayerPage() {
       </div>
 
       {view.phase === 'FINISHED' ? (
-        <Final view={view} />
+        <Final view={view} solo={solo} />
       ) : !view.me ? (
         <Join view={view} onJoin={() => join.run()} joining={join.isPending} />
       ) : view.phase === 'LOBBY' ? (
@@ -82,7 +93,7 @@ export default function UpDownPlayerPage() {
         <>
           <Question view={view} />
           {view.phase === 'REVEAL' ? (
-            <Result view={view} />
+            <Result view={view} onNext={solo ? () => advance.run(updownService.next) : undefined} busy={advance.isPending} />
           ) : view.me.voted ? (
             <Card role="status">
               <CardContent className="py-6 text-center">
@@ -90,9 +101,16 @@ export default function UpDownPlayerPage() {
                 <p className="mt-2 font-medium">
                   Apostaste {points.format(view.me.bet)} pts a que {choiceMeta(view.me.choice!).label.toLowerCase()}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Esperando a los demás · {view.tally.answered} de {view.ranking.length}
-                </p>
+                {solo ? (
+                  <Button className="mt-4 h-12 w-full rounded-xl" onClick={() => advance.run(updownService.reveal)} disabled={advance.isPending}>
+                    {advance.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+                    Revelar ahora
+                  </Button>
+                ) : (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Esperando a los demás · {view.tally.answered} de {view.ranking.length}
+                  </p>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -229,7 +247,14 @@ function VoteForm({ view, onVote, busy }: VoteFormProps) {
   )
 }
 
-function Result({ view }: { view: UpDownView }) {
+interface ResultProps {
+  view: UpDownView
+  /** Solo jugando solo: el jugador abre la siguiente ronda. */
+  onNext?: () => void
+  busy: boolean
+}
+
+function Result({ view, onNext, busy }: ResultProps) {
   const me = view.me!
   const reveal = view.question!.reveal!
   const tone = !me.voted ? 'text-muted-foreground' : me.delta > 0 ? 'text-gain' : 'text-loss'
@@ -250,12 +275,19 @@ function Result({ view }: { view: UpDownView }) {
         </CardContent>
       </Card>
       <LessonCard reveal={reveal} />
-      <p className="text-center text-sm text-muted-foreground">La siguiente ronda la abre el anfitrión.</p>
+      {onNext ? (
+        <Button className="h-12 w-full rounded-xl" onClick={onNext} disabled={busy}>
+          {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+          {view.round >= view.totalRounds ? 'Ver el resultado final' : 'Siguiente pregunta'}
+        </Button>
+      ) : (
+        <p className="text-center text-sm text-muted-foreground">La siguiente ronda la abre el anfitrión.</p>
+      )}
     </div>
   )
 }
 
-function Final({ view }: { view: UpDownView }) {
+function Final({ view, solo }: { view: UpDownView; solo: boolean }) {
   const me = view.me
 
   return (
@@ -283,6 +315,9 @@ function Final({ view }: { view: UpDownView }) {
           <UpDownRanking ranking={view.ranking} />
         </CardContent>
       </Card>
+      {solo && (
+        <SoloPlayButton play={updownService.playSolo} basePath="/minijuegos/sube-o-baja" label="Jugar de nuevo" variant="default" className="w-full" />
+      )}
       <Button asChild variant="outline" className="w-full">
         <Link to="/minijuegos">Volver a minijuegos</Link>
       </Button>
