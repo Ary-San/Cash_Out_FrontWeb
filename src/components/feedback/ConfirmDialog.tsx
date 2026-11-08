@@ -20,6 +20,14 @@ interface ConfirmDialogProps {
   pendingLabel?: string
   onConfirm: () => void
   pending?: boolean
+  /** Algo mas que pedir antes de confirmar, como escribir una palabra. */
+  children?: ReactNode
+  /** Mientras sea true, el boton de confirmar no se puede usar. */
+  confirmDisabled?: boolean
+  /** Texto del boton que cierra sin confirmar. */
+  cancelLabel?: string
+  /** 'default' para una pregunta que no borra nada. */
+  tone?: 'destructive' | 'default'
 }
 
 /** Confirmacion para acciones destructivas. Queda abierto mientras la accion corre. */
@@ -32,6 +40,10 @@ export function ConfirmDialog({
   pendingLabel = 'Eliminando…',
   onConfirm,
   pending = false,
+  children,
+  confirmDisabled = false,
+  cancelLabel = 'Cancelar',
+  tone = 'destructive',
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
@@ -40,11 +52,12 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
-            variant="destructive"
-            disabled={pending}
+            variant={tone}
+            disabled={pending || confirmDisabled}
             onClick={(event) => {
               // Radix cierra el dialogo al hacer clic; se cierra recien cuando la accion termina bien.
               event.preventDefault()

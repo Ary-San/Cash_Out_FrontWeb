@@ -188,14 +188,18 @@ describe('ProfilePage', () => {
     expect(userService.changePassword).not.toHaveBeenCalled()
   })
 
-  it('dar de baja pide confirmacion y despues cierra la sesion', async () => {
+  it('eliminar la cuenta pide escribir ELIMINAR y despues cierra la sesion', async () => {
     vi.mocked(userService.deleteMe).mockResolvedValue()
     const auth = renderPage()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Dar de baja mi cuenta' }))
-    const dialog = await screen.findByRole('alertdialog', { name: '¿Dar de baja tu cuenta?' })
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar mi cuenta' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Eliminar tu cuenta?' })
+    const confirm = within(dialog).getByRole('button', { name: 'Eliminar todo' })
+    expect(confirm).toBeDisabled()
+    await userEvent.type(within(dialog).getByLabelText(/para confirmar/), 'eliminar')
+    expect(confirm).toBeEnabled()
     expect(userService.deleteMe).not.toHaveBeenCalled()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Dar de baja' }))
+    await userEvent.click(confirm)
 
     await waitFor(() => expect(userService.deleteMe).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(auth.logout).toHaveBeenCalledTimes(1))
