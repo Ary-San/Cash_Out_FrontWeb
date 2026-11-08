@@ -19,6 +19,10 @@ export interface Expense {
   date: string
   description: string | null
   createdAt: string
+  /** 'USD' si se pago en dolares: amount sigue en soles y esto es lo pagado. */
+  originalCurrency?: 'USD' | null
+  originalAmount?: number | null
+  exchangeRate?: number | null
 }
 
 /** ExpenseRequest */
@@ -56,6 +60,8 @@ export interface MovementFilters {
 
 export interface ExpenseFilters extends MovementFilters {
   category?: ExpenseCategory
+  /** USD: los pagados en dolares; PEN: los demas. */
+  currency?: 'PEN' | 'USD'
 }
 
 /** MovementResponse: un ingreso o un gasto en el listado unificado. */
@@ -70,6 +76,9 @@ export interface Movement {
   amount: number
   date: string
   createdAt: string
+  /** 'USD' si el gasto se pago en dolares (amount sigue en soles). */
+  originalCurrency?: 'USD' | null
+  originalAmount?: number | null
 }
 
 /** MonthlyFlowsResponse: ingresos y gastos sumados por mes, con los meses vacios en cero. */

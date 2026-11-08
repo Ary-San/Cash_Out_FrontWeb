@@ -23,6 +23,11 @@ export function formatSoles(amount: number | null | undefined): string {
 }
 
 /** 226.14 → "226.14 fichas" */
+/** "US$ 80.97": lo pagado en dolares, junto al monto en soles. */
+export function formatDollars(amount: number | null | undefined): string {
+  return `US$ ${(amount ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 export function formatTokens(amount: number | null | undefined): string {
   return `${tokens.format(amount ?? 0)} fichas`
 }

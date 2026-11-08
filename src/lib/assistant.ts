@@ -20,6 +20,8 @@ export const WARNING_TEXT: Record<DraftWarning, string> = {
   HIGH_AMOUNT: 'El monto es muy alto: revísalo.',
   DUPLICATE_RECEIPT: 'Ya registraste esta boleta.',
   CREDIT_NOTE: 'Es una nota de crédito: entra como ingreso.',
+  POSSIBLE_SAME_PAYMENT: 'Llegaron otros avisos con el mismo monto a la misma hora: revisa que no sea el mismo pago.',
+  POSSIBLE_MANUAL_DUPLICATE: 'Ya registraste un movimiento con este monto hoy: puede ser el mismo.',
 }
 
 export const PAYMENT_LABEL: Record<NonNullable<Draft['paymentMethod']>, string> = {
@@ -33,11 +35,23 @@ export const PAYMENT_LABEL: Record<NonNullable<Draft['paymentMethod']>, string> 
 /** Debajo de esto la sugerencia es una adivinanza: la tarjeta lo dice y destaca las alternativas. */
 export const CONFIDENT = 0.5
 
+/** Un monto en dolares que ya tiene su equivalente en soles (tipo oficial del BCRP). */
+export function isConverted(draft: Draft): boolean {
+  return draft.currency === 'USD' && draft.amount != null && draft.amountPen != null
+}
+
+/** Lo que la tarjeta avisa: si ya se convirtio, sobra pedir que se convierta a mano. */
+export function visibleWarnings(draft: Draft): Draft['warnings'] {
+  return isConverted(draft) ? draft.warnings.filter((w) => w !== 'FOREIGN_CURRENCY') : draft.warnings
+}
+
 export function formFromDraft(draft: Draft): DraftForm {
+  // La app guarda soles: un monto en dolares ya convertido entra a la tarjeta en soles.
+  const amount = isConverted(draft) ? draft.amountPen! : draft.amount
   return {
     kind: draft.kind,
     description: draft.description ?? '',
-    amount: draft.amount === null ? '' : amountToField(draft.amount),
+    amount: amount == null ? '' : amountToField(amount),
     date: draft.date,
     category: draft.category,
   }
@@ -69,5 +83,6 @@ export function confirmRequest(draft: Draft, form: DraftForm): ConfirmDraftReque
     ruc: draft.ruc ?? undefined,
     receiptRef: draft.receiptRef ?? undefined,
     learn: form.kind !== draft.kind || (!income && form.category !== draft.category),
+    ...(!income && isConverted(draft) && { originalCurrency: 'USD' as const, originalAmount: draft.amount! }),
   }
 }

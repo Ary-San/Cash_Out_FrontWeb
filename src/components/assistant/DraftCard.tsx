@@ -1,7 +1,8 @@
 import { useId, useState } from 'react'
 import { Loader2, TriangleAlert, X } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/categories'
-import { CONFIDENT, formProblem, PAYMENT_LABEL, WARNING_TEXT, type DraftForm } from '@/lib/assistant'
+import { CONFIDENT, formProblem, isConverted, PAYMENT_LABEL, visibleWarnings, WARNING_TEXT, type DraftForm } from '@/lib/assistant'
+import { formatDollars, formatSoles } from '@/lib/format'
 import type { Draft } from '@/types/assistant'
 import { EXPENSE_CATEGORIES } from '@/types/movements'
 import { SegmentButton, Segmented } from '@/components/filters/Segmented'
@@ -119,9 +120,11 @@ export function DraftCard({ draft, form, onChange, onSave, onDiscard, saving, er
         </fieldset>
       )}
 
-      {draft.warnings.length > 0 && (
+      {isConverted(draft) && <Conversion draft={draft} />}
+
+      {visibleWarnings(draft).length > 0 && (
         <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-          {draft.warnings.map((warning) => (
+          {visibleWarnings(draft).map((warning) => (
             <li key={warning} className="flex items-center gap-1.5">
               <TriangleAlert className="size-3.5 shrink-0 text-accent-ink" aria-hidden="true" />
               {WARNING_TEXT[warning]}
@@ -148,5 +151,21 @@ export function DraftCard({ draft, form, onChange, onSave, onDiscard, saving, er
         </Button>
       </div>
     </li>
+  )
+}
+
+const rateDay = new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+
+/** "Pagaste US$ 80.97 · S/ 279.51 con el tipo de cambio 3.452 del 5 nov." y de donde sale ese tipo. */
+function Conversion({ draft }: { draft: Draft }) {
+  return (
+    <div className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-xs">
+      <p>
+        Pagaste <span className="font-medium">{formatDollars(draft.amount)}</span> ·{' '}
+        <span className="font-medium">{formatSoles(draft.amountPen)}</span> con el tipo de cambio {draft.exchangeRate?.toFixed(3)}
+        {draft.rateDate && ` del ${rateDay.format(new Date(`${draft.rateDate}T00:00:00Z`))}`}.
+      </p>
+      <p className="mt-0.5 text-muted-foreground">La tasa de cambio es la oficial del BCRP. Los bancos manejan sus propias tasas de cambio.</p>
+    </div>
   )
 }

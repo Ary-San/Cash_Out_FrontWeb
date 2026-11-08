@@ -11,6 +11,7 @@ import { monthPace } from '@/lib/monthPace'
 import { recurringExpenses } from '@/lib/recurring'
 import { movementService } from '@/services/movementService'
 import { AssistantComposer } from '@/components/assistant/AssistantComposer'
+import { DetectedInbox } from '@/components/assistant/DetectedInbox'
 import { ErrorState } from '@/components/feedback/ErrorState'
 import { CategoryDonut } from '@/components/movements/CategoryDonut'
 import { MonthCompareCard } from '@/components/movements/MonthCompareCard'
@@ -108,6 +109,7 @@ function MovementsOverview() {
       </div>
 
       <AssistantComposer onSaved={refresh} />
+      <DetectedInbox version={version} onSaved={refresh} />
 
       {query.error && !query.data ? (
         <ErrorState error={query.error} onRetry={query.reload} title="No pudimos cargar el resumen del mes" />

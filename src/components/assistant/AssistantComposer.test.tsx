@@ -66,6 +66,33 @@ describe('AssistantComposer', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
   })
 
+  it('una frase en dolares se llena en soles con el tipo del BCRP y guarda lo pagado en dolares', async () => {
+    const netflix: Draft = {
+      ...base,
+      description: 'Netflix',
+      amount: 12.99,
+      currency: 'USD',
+      category: 'LEISURE',
+      warnings: ['FOREIGN_CURRENCY'],
+      amountPen: 44.84,
+      exchangeRate: 3.452,
+      rateDate: '2026-10-26',
+    }
+    drafts.mockResolvedValue([netflix])
+    confirm.mockResolvedValue({ kind: 'EXPENSE', id: 3, learned: false })
+    render(<AssistantComposer onSaved={vi.fn()} />)
+
+    await userEvent.type(screen.getByLabelText('Qué gastaste o recibiste'), 'netflix 12.99 dolares{Enter}')
+    expect(await screen.findByText(/con el tipo de cambio 3\.452 del 26 oct/)).toBeInTheDocument()
+    expect(screen.getByText('La tasa de cambio es la oficial del BCRP. Los bancos manejan sus propias tasas de cambio.')).toBeInTheDocument()
+    expect(screen.queryByText(/conviértelo antes de guardar/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar gasto' }))
+    await waitFor(() =>
+      expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ amount: 44.84, originalCurrency: 'USD', originalAmount: 12.99 })),
+    )
+  })
+
   it('una tarjeta sin monto avisa y no se guarda hasta completarlo', async () => {
     drafts.mockResolvedValue([almuerzo])
     confirm.mockResolvedValue({ kind: 'EXPENSE', id: 2, learned: false })

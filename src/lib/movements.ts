@@ -11,6 +11,8 @@ export function expenseToMovement(expense: Expense): Movement {
     amount: expense.amount,
     date: expense.date,
     createdAt: expense.createdAt,
+    originalCurrency: expense.originalCurrency,
+    originalAmount: expense.originalAmount,
   }
 }
 

@@ -16,6 +16,7 @@ import { useListParams } from '@/hooks/useListParams'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { CATEGORY_META, isExpenseCategory } from '@/lib/categories'
 import { validRange } from '@/lib/dates'
+import { formatDollars } from '@/lib/format'
 import type { ListConfig } from '@/lib/listParams'
 import { movementInsight, type MonthSummary } from '@/lib/monthOverview'
 import { movementKey, movementPath } from '@/lib/movementPaths'
@@ -53,7 +54,7 @@ export interface MovementsOutletContext {
   summary: MonthSummary | undefined
 }
 
-type Filter = 'search' | 'from' | 'to' | 'category'
+type Filter = 'search' | 'from' | 'to' | 'category' | 'currency'
 type ListRequest = PageParams & ExpenseFilters
 
 interface TabSetup {
@@ -75,6 +76,12 @@ const SORT_OPTIONS: SelectOption[] = [
   { value: 'date,asc', label: 'Más antiguos' },
   { value: 'amount,desc', label: 'Monto: mayor a menor' },
   { value: 'amount,asc', label: 'Monto: menor a mayor' },
+]
+
+/** Los gastos en dolares se guardan en soles; el filtro separa los que se pagaron en cada moneda. */
+const CURRENCY_OPTIONS: SelectOption[] = [
+  { value: 'PEN', label: 'Pagados en soles' },
+  { value: 'USD', label: 'Pagados en dólares' },
 ]
 
 const TABS: Record<MovementTab, TabSetup> = {
@@ -112,7 +119,7 @@ const TABS: Record<MovementTab, TabSetup> = {
     },
   },
   gastos: {
-    config: { sorts: [...SORTS, 'category,asc'], defaultSort: 'date,desc', filters: ['search', 'from', 'to', 'category'] },
+    config: { sorts: [...SORTS, 'category,asc'], defaultSort: 'date,desc', filters: ['search', 'from', 'to', 'category', 'currency'] },
     sortOptions: [...SORT_OPTIONS, { value: 'category,asc', label: 'Agrupar por categoría' }],
     load: async (params, signal) => {
       const page = await expenseService.list(params, signal)
@@ -149,12 +156,13 @@ export function MovementsList({ tab }: { tab: MovementTab }) {
 
   const range = validRange(filters.from, filters.to)
   const category = tab === 'gastos' && isExpenseCategory(filters.category) ? filters.category : undefined
+  const currency = tab === 'gastos' && (filters.currency === 'PEN' || filters.currency === 'USD') ? filters.currency : undefined
   const params: ListRequest = {
     page: page - 1,
     size,
     sort,
     search: filters.search || undefined,
-    ...(tab === 'gastos' && { category }),
+    ...(tab === 'gastos' && { category, currency }),
     from: range?.from,
     to: range?.to,
   }
@@ -193,7 +201,7 @@ export function MovementsList({ tab }: { tab: MovementTab }) {
     refresh()
   }
 
-  const clearFilters = () => list.update({ search: '', from: '', to: '', category: '' })
+  const clearFilters = () => list.update({ search: '', from: '', to: '', category: '', currency: '' })
 
   const pickCategory = (value: string) => {
     if (tab === 'gastos') {
@@ -267,6 +275,15 @@ export function MovementsList({ tab }: { tab: MovementTab }) {
               placeholder={setup.search.placeholder}
             />
             <DateRangeFilter from={filters.from} to={filters.to} onChange={(from, to) => list.update({ from, to })} />
+            {tab === 'gastos' && (
+              <FilterSelect
+                label="Moneda"
+                value={currency ?? ''}
+                allLabel="Soles y dólares"
+                options={CURRENCY_OPTIONS}
+                onChange={(value) => list.update({ currency: value })}
+              />
+            )}
             <FilterSelect
               className="lg:ml-auto"
               label="Ordenar"
@@ -467,7 +484,14 @@ function MovementRow({ movement, selected, wide, onSelect, returnState }: Moveme
       <span className="hidden sm:block">
         <MovementTypeBadge movement={movement} />
       </span>
-      <AmountText value={movement.amount} kind={income ? 'income' : 'expense'} className="text-right text-[13.5px]" />
+      <span className="flex flex-col items-end">
+        <AmountText value={movement.amount} kind={income ? 'income' : 'expense'} className="text-right text-[13.5px]" />
+        {movement.originalCurrency === 'USD' && (
+          <span className="text-[11.5px] text-muted-foreground" title="Pagado en dólares; convertido con el tipo de cambio oficial del BCRP">
+            {formatDollars(movement.originalAmount)}
+          </span>
+        )}
+      </span>
     </li>
   )
 }
