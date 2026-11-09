@@ -46,7 +46,10 @@ export function PublicLayout() {
       </main>
       <footer className="border-t py-6 text-center text-xs text-muted-foreground">
         Cash-Out · Proyecto académico de educación financiera. Las inversiones son simuladas con fichas, no con
-        dinero real.
+        dinero real. ·{' '}
+        <a href="/privacidad.html" className="underline underline-offset-2 hover:text-foreground">
+          Política de privacidad
+        </a>
       </footer>
     </div>
   )
